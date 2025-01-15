@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom font for pack display */
+@font-face {
+    font-family: 'Beleren';
+    src: url('/fonts/Beleren-Bold.woff') format('woff');
+    font-weight: bold;
+    font-style: normal;
+}
+
+@layer components {
+    .font-beleren {
+        font-family: 'Beleren', ui-sans-serif, system-ui, -apple-system;
+    }
+
+    .text-gold {
+        color: #FFD700;
+    }
+
+    .border-gold {
+        border-color: #FFD700;
+    }
+
+    .bg-gold {
+        background-color: #FFD700;
+    }
+
+    .pack-card {
+        @apply transition-all duration-300 hover:scale-105 hover:shadow-xl;
+        box-shadow: 0 0 15px rgba(147, 51, 234, 0.2);
+        background-color: #2D1B4E;
+    }
+
+    .pack-card:hover {
+        box-shadow: 0 0 25px rgba(147, 51, 234, 0.3);
+    }
+
+    .pack-card img {
+        filter: saturate(0.8) contrast(1.1);
+        transition: all 0.5s ease-in-out;
+        transform: scale(1.05);
+    }
+
+    .pack-card:hover img {
+        filter: saturate(0.9) contrast(1.2);
+        transform: scale(1.1);
+    }
+
+    .foil-pattern {
+        background-image: repeating-linear-gradient(
+            45deg,
+            rgba(255, 255, 255, 0.15) 0px,
+            rgba(255, 255, 255, 0.15) 1px,
+            transparent 1px,
+            transparent 2px
+        ),
+        repeating-linear-gradient(
+            -45deg,
+            rgba(255, 255, 255, 0.15) 0px,
+            rgba(255, 255, 255, 0.15) 1px,
+            transparent 1px,
+            transparent 2px
+        );
+        animation: foil-scale 3s ease-in-out infinite;
+    }
+
+    @keyframes foil-scale {
+        0%, 100% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.05);
+        }
+    }
+
+    .shimmer {
+        @apply absolute inset-0;
+        background: linear-gradient(
+            to bottom,
+            transparent 0%,
+            rgba(255, 255, 255, 0.6) 50%,
+            transparent 100%
+        );
+        animation: shimmer 1.5s ease-in-out infinite, rotate 8s linear infinite;
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateY(-100%) rotate(0deg);
+    }
+    100% {
+        transform: translateY(100%) rotate(0deg);
+    }
+}
+
+@keyframes rotate {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.shimmer {
+    transform-origin: center;
+}
