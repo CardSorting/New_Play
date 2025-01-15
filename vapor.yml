@@ -1,12 +1,14 @@
-id: 68793
-name: DinoPower
+id: 68797
+name: beefree
 environments:
     production:
         memory: 1024
         cli-memory: 512
         runtime: 'php-8.3:al2'
+        database: beefree-production-db
         build:
             - 'composer install --no-dev'
             - 'php artisan event:cache'
-            - 'php artisan migrate --force'
           # - 'npm ci && npm run build && rm -rf node_modules'
+        deploy:
+            - 'php artisan migrate --force'
