@@ -1,0 +1,13 @@
+id: 68793
+name: DinoPower
+environments:
+    production:
+        memory: 1024
+        cli-memory: 512
+        runtime: 'php-8.3:al2'
+        build:
+            - 'mkdir -p /tmp/vapor-db && touch /tmp/vapor-db/database.sqlite && chmod 666 /tmp/vapor-db/database.sqlite && echo "Database created at $(date)"'
+            - 'composer install --no-dev'
+            - 'php artisan event:cache'
+            - 'php artisan migrate --force'
+          # - 'npm ci && npm run build && rm -rf node_modules'

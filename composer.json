@@ -10,6 +10,7 @@
         "laravel/framework": "^11.31",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.9",
+        "laravel/vapor-core": "^2.37",
         "livewire/livewire": "^3.5",
         "predis/predis": "^2.3",
         "stripe/stripe-php": "^16.4"
