@@ -28,7 +28,7 @@ class StripeService {
         }
     }
 
-    async createPaymentIntent(cart) {
+    async createPaymentIntent(cartItems) {
         try {
             const idempotencyKey = uuidv4(); // Generate unique key for this payment attempt
             
@@ -40,7 +40,7 @@ class StripeService {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
                 },
                 body: JSON.stringify({ 
-                    cart,
+                    cart: cartItems, // Wrap cart items in 'cart' key
                     idempotencyKey
                 })
             });
