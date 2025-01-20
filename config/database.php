@@ -86,17 +86,17 @@ return [
         'pgsql' => [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),
-            'host' => 'beefree.cz8ageqg6wyr.us-east-1.rds.amazonaws.com',
-            'port' => '5432',
-            'database' => 'beefreeavailablePublic',
-            'username' => 'fj0bJLaexHJ7yme7HMHaVK6kUcnek3SFsNwnkeF1',
-            'password' => 'DinoPower',
+            'host' => env('DB_HOST'),
+            'port' => env('DB_PORT', '5432'),
+            'database' => env('DB_DATABASE'),
+            'username' => env('DB_USERNAME'),
+            'password' => env('DB_PASSWORD'),
             'charset' => 'utf8',
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => 'verify-full',
-            'sslcert' => storage_path('rds-ca-2019-root.pem'),
+            'sslrootcert' => base_path('storage/rds-ca-2019-root.pem'),
         ],
 
         'sqlsrv' => [
