@@ -1,5 +1,5 @@
-id: 68880
-name: playmore
+id: 68885
+name: newday
 default-environment: production
 environments:
     production:
@@ -14,9 +14,5 @@ environments:
             - 'php artisan config:clear'
             - 'php artisan event:cache'
             - 'npm ci && npm run build && rm -rf node_modules'
-        deploy:
-            - 'php artisan config:cache'
         environment:
             CACHE_DRIVER: redis
-            REDIS_CLIENT: phpredis
-            REDIS_SCHEME: tls
