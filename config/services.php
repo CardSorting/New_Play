@@ -38,9 +38,25 @@ return [
     'stripe' => [
         'key' => env('STRIPE_KEY'),
         'secret' => env('STRIPE_SECRET'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+        'minimum_amount' => env('STRIPE_MINIMUM_AMOUNT', 0.50),
+        'currency' => env('STRIPE_CURRENCY', 'usd'),
+        'payment_methods' => ['card'],
+        'automatic_payment_methods' => [
+            'enabled' => true,
+        ],
         'webhook' => [
             'secret' => env('STRIPE_WEBHOOK_SECRET'),
             'tolerance' => env('STRIPE_WEBHOOK_TOLERANCE', 300),
+        ],
+        'cache' => [
+            'enabled' => true,
+            'prefix' => 'stripe_',
+            'ttl' => [
+                'idempotency' => 24 * 60 * 60, // 24 hours
+                'payment_intent' => 24 * 60 * 60,
+                'webhook_event' => 24 * 60 * 60,
+            ],
         ],
     ],
 

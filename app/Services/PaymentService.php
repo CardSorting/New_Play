@@ -45,16 +45,16 @@ class PaymentService implements PaymentServiceInterface
 
         try {
             $amount = $cart->getTotalAmount();
-            if ($amount < config('stripe.minimum_amount')) {
+            if ($amount < config('services.stripe.minimum_amount', 0.50)) {
                 throw PaymentException::invalidCart(
-                    "Amount must be at least $" . config('stripe.minimum_amount')
+                    "Amount must be at least $" . config('services.stripe.minimum_amount', 0.50)
                 );
             }
 
             $firstItem = $cart->getItems()->first();
             $params = [
                 'amount' => (int) ($amount * 100), // Convert to cents
-                'currency' => config('stripe.currency'),
+                'currency' => config('services.stripe.currency', 'usd'),
                 'automatic_payment_methods' => [
                     'enabled' => true
                 ],
@@ -264,11 +264,11 @@ class PaymentService implements PaymentServiceInterface
 
     private function getIdempotencyCacheKey(string $key): string
     {
-        return config('stripe.cache.prefix') . 'idempotency:' . $key;
+        return 'stripe_idempotency:' . $key;
     }
 
     private function getConfirmationCacheKey(string $paymentIntentId): string
     {
-        return config('stripe.cache.prefix') . 'confirm:' . $paymentIntentId;
+        return 'stripe_confirm:' . $paymentIntentId;
     }
 }
