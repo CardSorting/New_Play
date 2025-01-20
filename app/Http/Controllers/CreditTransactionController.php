@@ -2,10 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Contracts\Services\PaymentServiceInterface;
-use App\Http\Requests\{CreditTransactionRequest, CreatePaymentIntentRequest};
+use App\Http\Requests\CreditTransactionRequest;
 use App\Services\PulseService;
-use App\ValueObjects\Cart;
 use Illuminate\Http\{JsonResponse, Request};
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
@@ -13,61 +11,44 @@ use Symfony\Component\HttpFoundation\Response;
 class CreditTransactionController extends Controller
 {
     public function __construct(
-        private readonly PulseService $pulseService,
-        private readonly PaymentServiceInterface $paymentService
+        private readonly PulseService $pulseService
     ) {}
-
-    /**
-     * Create a new payment intent for credit purchase
-     */
-    public function createPaymentIntent(CreatePaymentIntentRequest $request): JsonResponse
-    {
-        try {
-            $cart = Cart::fromRequest($request->validated());
-            
-            $paymentIntent = $this->paymentService->createPaymentIntent(
-                cart: $cart,
-                idempotencyKey: $request->validated('idempotencyKey')
-            );
-
-            return response()->payment($paymentIntent->toArray());
-        } catch (\Exception $e) {
-            // PaymentException handling is done by our service provider
-            throw $e;
-        }
-    }
-
-    /**
-     * Confirm a payment and add credits
-     */
-    public function confirmPayment(Request $request, string $paymentIntentId): JsonResponse
-    {
-        try {
-            $amount = $request->validate([
-                'amount' => 'required|integer|min:1'
-            ])['amount'];
-
-            $result = $this->paymentService->confirmPayment(
-                paymentIntentId: $paymentIntentId,
-                user: Auth::user(),
-                amount: $amount
-            );
-
-            return response()->payment($result);
-        } catch (\Exception $e) {
-            // PaymentException handling is done by our service provider
-            throw $e;
-        }
-    }
 
     /**
      * Get user's credit balance
      */
     public function balance(): JsonResponse
     {
-        return response()->payment([
+        return response()->json([
             'balance' => $this->pulseService->getCreditBalance(Auth::user())
         ]);
+    }
+
+    /**
+     * Claim daily pulse credits
+     */
+    public function claimPulse(): JsonResponse
+    {
+        $user = Auth::user();
+        
+        if (!$this->pulseService->canClaimDailyPulse($user)) {
+            $nextClaimTime = $this->pulseService->getNextPulseClaimTime($user);
+            return response()->json([
+                'message' => 'Cannot claim pulse yet',
+                'next_claim_time' => $nextClaimTime->toISOString(),
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        if ($this->pulseService->claimDailyPulse($user)) {
+            return response()->json([
+                'message' => 'Daily pulse claimed successfully',
+                'balance' => $this->pulseService->getCreditBalance($user)
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Failed to claim daily pulse',
+        ], Response::HTTP_INTERNAL_SERVER_ERROR);
     }
 
     /**
@@ -86,16 +67,15 @@ class CreditTransactionController extends Controller
                 pack_id: $validated['pack_id']
             );
 
-            return response()->payment([
+            return response()->json([
                 'message' => 'Credits added successfully',
                 'balance' => $this->pulseService->getCreditBalance(Auth::user())
             ]);
         } catch (\Exception $e) {
-            return response()->paymentError(
-                'Failed to add credits',
-                ['error' => $e->getMessage()],
-                Response::HTTP_INTERNAL_SERVER_ERROR
-            );
+            return response()->json([
+                'message' => 'Failed to add credits',
+                'error' => $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -116,23 +96,21 @@ class CreditTransactionController extends Controller
             );
 
             if (!$success) {
-                return response()->paymentError(
-                    'Insufficient credits',
-                    [],
-                    Response::HTTP_BAD_REQUEST
-                );
+                return response()->json([
+                    'message' => 'Insufficient credits',
+                    'balance' => $this->pulseService->getCreditBalance(Auth::user())
+                ], Response::HTTP_BAD_REQUEST);
             }
 
-            return response()->payment([
+            return response()->json([
                 'message' => 'Credits deducted successfully',
                 'balance' => $this->pulseService->getCreditBalance(Auth::user())
             ]);
         } catch (\Exception $e) {
-            return response()->paymentError(
-                'Failed to deduct credits',
-                ['error' => $e->getMessage()],
-                Response::HTTP_INTERNAL_SERVER_ERROR
-            );
+            return response()->json([
+                'message' => 'Failed to deduct credits',
+                'error' => $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -143,7 +121,7 @@ class CreditTransactionController extends Controller
     {
         $limit = $request->input('limit', 10);
 
-        return response()->payment([
+        return response()->json([
             'transactions' => $this->pulseService->getTransactionHistory(Auth::user(), $limit)
         ]);
     }
