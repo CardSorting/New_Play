@@ -2,171 +2,118 @@
 
 namespace App\Services;
 
-use App\Models\CreditTransaction;
-use App\Models\User;
+use App\Models\{CreditTransaction, User};
 use Illuminate\Support\Facades\{DB, Log};
+use RuntimeException;
 
 class PulseService
 {
     public function getCreditBalance(User $user): int
     {
-        return $this->calculateBalanceFromDb($user);
+        try {
+            $latestTransaction = CreditTransaction::latestBalance($user->id);
+            return $latestTransaction?->running_balance ?? 0;
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch credit balance', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage()
+            ]);
+            throw new RuntimeException('Failed to fetch credit balance', 0, $e);
+        }
     }
 
     public function addCredits(User $user, int $amount, ?string $description = null, ?string $reference = null, ?int $pack_id = null): void
     {
-        Log::info('Starting addCredits process', [
-            'user_id' => $user->id,
-            'amount' => $amount,
-            'description' => $description,
-            'reference' => $reference
-        ]);
-
-        if ($amount <= 0) {
-            Log::error('Invalid credit amount', ['amount' => $amount]);
-            throw new \InvalidArgumentException('Credit amount must be positive');
-        }
-
         try {
-            DB::beginTransaction();
+            DB::transaction(function () use ($user, $amount, $description, $reference, $pack_id) {
+                // Lock using Laravel's sharedLock mechanism
+                $currentBalance = CreditTransaction::where('user_id', $user->id)
+                    ->lockForUpdate()
+                    ->latest()
+                    ->value('running_balance') ?? 0;
 
-            Log::info('Creating credit transaction', [
-                'user_id' => $user->id,
-                'amount' => $amount,
-                'type' => 'credit'
-            ]);
+                $newBalance = $currentBalance + $amount;
 
-            $transaction = CreditTransaction::create([
-                'user_id' => $user->id,
-                'amount' => $amount,
-                'type' => 'credit',
-                'description' => $description,
-                'reference' => $reference,
-                'pack_id' => $pack_id
-            ]);
+                $transaction = new CreditTransaction([
+                    'user_id' => $user->id,
+                    'amount' => $amount,
+                    'type' => CreditTransaction::TYPE_CREDIT,
+                    'description' => $description,
+                    'reference' => $reference,
+                    'pack_id' => $pack_id,
+                    'running_balance' => $newBalance
+                ]);
 
-            if (!$transaction) {
-                Log::error('Transaction creation returned null');
-                DB::rollBack();
-                throw new \Exception('Failed to create credit transaction');
-            }
+                if (!$transaction->save()) {
+                    throw new RuntimeException('Failed to create credit transaction');
+                }
 
-            Log::info('Credit transaction created successfully', [
-                'transaction_id' => $transaction->id,
-                'user_id' => $user->id,
-                'amount' => $amount
-            ]);
-
-            DB::commit();
-            Log::info('Transaction committed successfully');
-
+                Log::info('Credit transaction completed', [
+                    'user_id' => $user->id,
+                    'amount' => $amount,
+                    'new_balance' => $newBalance
+                ]);
+            }, 5);
         } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Failed to create credit transaction', [
+            Log::error('Credit transaction failed', [
                 'user_id' => $user->id,
                 'amount' => $amount,
-                'description' => $description,
-                'reference' => $reference,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'error' => $e->getMessage()
             ]);
-            throw $e;
+            throw new RuntimeException('Failed to add credits', 0, $e);
         }
     }
 
     public function deductCredits(User $user, int $amount, ?string $description = null, ?string $reference = null, ?int $pack_id = null): bool
     {
-        if ($amount <= 0) {
-            throw new \InvalidArgumentException('Debit amount must be positive');
-        }
-
         try {
-            DB::beginTransaction();
+            return DB::transaction(function () use ($user, $amount, $description, $reference, $pack_id) {
+                // Lock using Laravel's sharedLock mechanism
+                $currentBalance = CreditTransaction::where('user_id', $user->id)
+                    ->lockForUpdate()
+                    ->latest()
+                    ->value('running_balance') ?? 0;
 
-            // Lock the user's transactions for balance calculation
-            $credits = CreditTransaction::where('user_id', $user->id)
-                ->where('type', 'credit')
-                ->lockForUpdate()
-                ->sum('amount');
+                if ($currentBalance < $amount) {
+                    return false;
+                }
 
-            $debits = CreditTransaction::where('user_id', $user->id)
-                ->where('type', 'debit')
-                ->lockForUpdate()
-                ->sum('amount');
+                $newBalance = $currentBalance - $amount;
 
-            $currentBalance = $credits - $debits;
+                $transaction = new CreditTransaction([
+                    'user_id' => $user->id,
+                    'amount' => $amount,
+                    'type' => CreditTransaction::TYPE_DEBIT,
+                    'description' => $description,
+                    'reference' => $reference,
+                    'pack_id' => $pack_id,
+                    'running_balance' => $newBalance
+                ]);
 
-            if ($currentBalance < $amount) {
-                DB::rollBack();
-                return false;
-            }
+                if (!$transaction->save()) {
+                    throw new RuntimeException('Failed to create debit transaction');
+                }
 
-            Log::info('Creating debit transaction', [
-                'user_id' => $user->id,
-                'amount' => $amount,
-                'type' => 'debit'
-            ]);
+                Log::info('Debit transaction completed', [
+                    'user_id' => $user->id,
+                    'amount' => $amount,
+                    'new_balance' => $newBalance
+                ]);
 
-            $transaction = CreditTransaction::create([
-                'user_id' => $user->id,
-                'amount' => $amount,
-                'type' => 'debit',
-                'description' => $description,
-                'reference' => $reference,
-                'pack_id' => $pack_id
-            ]);
-
-            if (!$transaction) {
-                Log::error('Debit transaction creation returned null');
-                DB::rollBack();
-                throw new \Exception('Failed to create debit transaction');
-            }
-
-            Log::info('Debit transaction created successfully', [
-                'transaction_id' => $transaction->id,
-                'user_id' => $user->id,
-                'amount' => $amount
-            ]);
-
-            DB::commit();
-            return true;
-
+                return true;
+            }, 5);
         } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Failed to create debit transaction', [
+            Log::error('Debit transaction failed', [
                 'user_id' => $user->id,
                 'amount' => $amount,
-                'description' => $description,
-                'reference' => $reference,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'error' => $e->getMessage()
             ]);
-            throw $e;
+            throw new RuntimeException('Failed to deduct credits', 0, $e);
         }
     }
 
     public function getTransactionHistory(User $user, int $limit = 10)
     {
-        return CreditTransaction::where('user_id', $user->id)
-            ->orderBy('created_at', 'desc')
-            ->limit($limit)
-            ->get();
-    }
-
-    private function calculateBalanceFromDb(User $user): int
-    {
-        return DB::transaction(function () use ($user) {
-            $credits = CreditTransaction::where('user_id', $user->id)
-                ->where('type', 'credit')
-                ->lockForUpdate()
-                ->sum('amount');
-
-            $debits = CreditTransaction::where('user_id', $user->id)
-                ->where('type', 'debit')
-                ->lockForUpdate()
-                ->sum('amount');
-
-            return $credits - $debits;
-        });
+        return CreditTransaction::withBalanceChanges($user->id, $limit);
     }
 }

@@ -39,11 +39,12 @@ class RouteServiceProvider extends ServiceProvider
                     
                     // Protected routes
                     Route::middleware(['auth', 'verified'])->group(function () {
-                        // Dashboard routes (including cards and packs)
+                        // Dashboard routes (including cards, packs, and credits)
                         Route::prefix('dashboard')->group(function () {
                             require base_path('routes/dashboard.php');
                             require base_path('routes/cards.php');
                             require base_path('routes/packs.php');
+                            require base_path('routes/credits.php');
                         });
                         
                         // Marketplace routes with rate limiting
