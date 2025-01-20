@@ -6,6 +6,11 @@ environments:
         cli-memory: 512
         runtime: 'php-8.3:al2'
         database: beefree-production-db
+        queues:
+            - images-production: 50
+        queue-memory: 1024
+        queue-timeout: 900
+        queue-database-session-persist: true
         build:
             - 'composer install --no-dev'
             - 'php artisan event:cache'

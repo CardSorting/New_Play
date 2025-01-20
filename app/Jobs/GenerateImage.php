@@ -14,6 +14,9 @@ class GenerateImage implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    /**
+     * Create a new job instance.
+     */
     public function __construct(
         protected string $taskId,
         protected string $prompt,
@@ -21,7 +24,10 @@ class GenerateImage implements ShouldQueue
         protected string $processMode,
         protected int $userId,
         protected array $feedbackHistory = []
-    ) {}
+    ) {
+        // Set the queue name without the suffix - Vapor will append it
+        $this->onQueue('images');
+    }
 
     public function handle(): void
     {
@@ -61,6 +67,7 @@ class GenerateImage implements ShouldQueue
                 } elseif ($data['status'] === 'processing') {
                     // Re-dispatch the job with a delay to check again
                     self::dispatch($this->taskId, $this->prompt, $this->aspectRatio, $this->processMode, $this->userId, $this->feedbackHistory)
+                        ->onQueue('images')
                         ->delay(now()->addSeconds(10));
                 }
             }
