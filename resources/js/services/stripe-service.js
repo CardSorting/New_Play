@@ -1,4 +1,5 @@
 import { loadStripe } from '@stripe/stripe-js';
+import { v4 as uuidv4 } from 'uuid';
 
 class StripeService {
     constructor() {
@@ -29,6 +30,8 @@ class StripeService {
 
     async createPaymentIntent(cart) {
         try {
+            const idempotencyKey = uuidv4(); // Generate unique key for this payment attempt
+            
             const response = await fetch('/dashboard/api/payment-intent', {
                 method: 'POST',
                 headers: {
@@ -36,20 +39,23 @@ class StripeService {
                     'Accept': 'application/json',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
                 },
-                body: JSON.stringify({ cart })
+                body: JSON.stringify({ 
+                    cart,
+                    idempotencyKey
+                })
             });
 
-            const data = await response.json();
-            
             if (!response.ok) {
+                const errorData = await response.json();
                 console.error('Payment intent creation failed:', {
                     status: response.status,
                     statusText: response.statusText,
-                    data
+                    data: errorData
                 });
-                throw new Error(data.message || 'Failed to create payment intent');
+                throw new Error(errorData.message || 'Failed to create payment intent');
             }
 
+            const data = await response.json();
             return data;
         } catch (error) {
             console.error('Error creating payment intent:', {
@@ -73,17 +79,17 @@ class StripeService {
                 body: JSON.stringify({ amount })
             });
 
-            const data = await response.json();
-            
             if (!response.ok) {
+                const errorData = await response.json();
                 console.error('Payment confirmation failed:', {
                     status: response.status,
                     statusText: response.statusText,
-                    data
+                    data: errorData
                 });
-                throw new Error(data.message || 'Failed to confirm payment');
+                throw new Error(errorData.message || 'Failed to confirm payment');
             }
 
+            const data = await response.json();
             console.log('Payment confirmation successful:', data);
             return data;
         } catch (error) {
@@ -97,28 +103,66 @@ class StripeService {
     }
 
     async createPaymentElement(clientSecret) {
-        if (!this.stripe) {
-            throw new Error('Stripe not initialized');
+        try {
+            if (!this.stripe) {
+                throw new Error('Stripe not initialized');
+            }
+
+            const elements = this.stripe.elements({
+                clientSecret,
+                appearance: {
+                    theme: 'stripe',
+                    variables: {
+                        colorPrimary: '#0d6efd',
+                        colorBackground: '#ffffff',
+                        colorText: '#30313d',
+                        colorDanger: '#df1b41',
+                        fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+                        spacingUnit: '4px',
+                        borderRadius: '4px'
+                    }
+                }
+            });
+
+            const paymentElement = elements.create('payment');
+            return { elements, paymentElement };
+        } catch (error) {
+            console.error('Error creating payment element:', error);
+            throw error;
+        }
+    }
+
+    async handlePaymentResult(result, onSuccess) {
+        if (result.error) {
+            console.error('Payment failed:', result.error);
+            throw result.error;
         }
 
-        const elements = this.stripe.elements({
-            clientSecret,
-            appearance: {
-                theme: 'stripe',
-                variables: {
-                    colorPrimary: '#0d6efd',
-                    colorBackground: '#ffffff',
-                    colorText: '#30313d',
-                    colorDanger: '#df1b41',
-                    fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-                    spacingUnit: '4px',
-                    borderRadius: '4px'
-                }
-            }
-        });
+        const { paymentIntent } = result;
+        console.log('Payment result:', paymentIntent);
 
-        const paymentElement = elements.create('payment');
-        return { elements, paymentElement };
+        if (paymentIntent.status === 'succeeded') {
+            console.log('Payment succeeded, confirming with backend...');
+            try {
+                const confirmResult = await this.confirmPayment(
+                    paymentIntent.id,
+                    paymentIntent.metadata.amount
+                );
+
+                if (confirmResult.status === 'COMPLETED') {
+                    console.log('Payment fully processed');
+                    if (onSuccess) {
+                        onSuccess(confirmResult);
+                    }
+                    return confirmResult;
+                }
+            } catch (error) {
+                console.error('Error during payment confirmation:', error);
+                throw error;
+            }
+        }
+
+        throw new Error(`Payment not completed. Status: ${paymentIntent.status}`);
     }
 }
 
