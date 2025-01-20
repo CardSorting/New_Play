@@ -5,7 +5,8 @@ use App\Http\Controllers\{
     CardController,
     PackController,
     ProfileController,
-    PulseController
+    PulseController,
+    ImageController
 };
 use Illuminate\Support\Facades\Route;
 
@@ -26,6 +27,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [PulseController::class, 'index'])->name('pulse.index');
         Route::post('/claim', [PulseController::class, 'claim'])->name('pulse.claim');
         Route::get('/status', [PulseController::class, 'checkStatus'])->name('pulse.status');
+    });
+
+    Route::prefix('/images')->group(function () {
+        Route::get('/', [ImageController::class, 'gallery'])->name('images.gallery');
     });
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
