@@ -31,6 +31,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::prefix('/images')->group(function () {
         Route::get('/', [ImageController::class, 'gallery'])->name('images.gallery');
+        Route::get('/create', [ImageController::class, 'create'])->name('images.create');
+        Route::post('/generate', [ImageController::class, 'generate'])->name('images.generate');
+        Route::get('/status/{taskId}', [ImageController::class, 'status'])->name('images.status');
     });
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

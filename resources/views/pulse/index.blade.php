@@ -12,7 +12,7 @@
                         this.errorMessage = '';
                         
                         try {
-                            const response = await fetch('/pulse/claim', {
+                            const response = await fetch('{{ route('pulse.claim') }}', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',

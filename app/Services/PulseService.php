@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\{CreditTransaction, User};
-use Illuminate\Support\Facades\{DB, Log};
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Carbon\Carbon;
 
@@ -41,16 +41,14 @@ class PulseService
         }
 
         try {
-            DB::transaction(function () use ($user) {
-                $user->last_pulse_claim = now();
-                $user->save();
+            $user->last_pulse_claim = now();
+            $user->save();
 
-                $this->addCredits(
-                    $user,
-                    self::DAILY_PULSE_AMOUNT,
-                    'Daily Pulse Claim'
-                );
-            });
+            $this->addCredits(
+                $user,
+                self::DAILY_PULSE_AMOUNT,
+                'Daily Pulse Claim'
+            );
 
             return true;
         } catch (\Exception $e) {
@@ -65,35 +63,24 @@ class PulseService
     public function addCredits(User $user, int $amount, ?string $description = null, ?string $reference = null, ?int $pack_id = null): void
     {
         try {
-            DB::transaction(function () use ($user, $amount, $description, $reference, $pack_id) {
-                // Lock using Laravel's sharedLock mechanism
-                $currentBalance = CreditTransaction::where('user_id', $user->id)
-                    ->lockForUpdate()
-                    ->latest()
-                    ->value('running_balance') ?? 0;
+            $currentBalance = CreditTransaction::latestBalance($user->id);
+            $newBalance = $currentBalance + $amount;
 
-                $newBalance = $currentBalance + $amount;
+            $transaction = CreditTransaction::create([
+                'user_id' => $user->id,
+                'amount' => $amount,
+                'type' => CreditTransaction::TYPE_CREDIT,
+                'description' => $description,
+                'reference' => $reference,
+                'pack_id' => $pack_id,
+                'running_balance' => $newBalance
+            ]);
 
-                $transaction = new CreditTransaction([
-                    'user_id' => $user->id,
-                    'amount' => $amount,
-                    'type' => CreditTransaction::TYPE_CREDIT,
-                    'description' => $description,
-                    'reference' => $reference,
-                    'pack_id' => $pack_id,
-                    'running_balance' => $newBalance
-                ]);
-
-                if (!$transaction->save()) {
-                    throw new RuntimeException('Failed to create credit transaction');
-                }
-
-                Log::info('Credit transaction completed', [
-                    'user_id' => $user->id,
-                    'amount' => $amount,
-                    'new_balance' => $newBalance
-                ]);
-            }, 5);
+            Log::info('Credit transaction completed', [
+                'user_id' => $user->id,
+                'amount' => $amount,
+                'new_balance' => $newBalance
+            ]);
         } catch (\Exception $e) {
             Log::error('Credit transaction failed', [
                 'user_id' => $user->id,
@@ -107,41 +94,31 @@ class PulseService
     public function deductCredits(User $user, int $amount, ?string $description = null, ?string $reference = null, ?int $pack_id = null): bool
     {
         try {
-            return DB::transaction(function () use ($user, $amount, $description, $reference, $pack_id) {
-                // Lock using Laravel's sharedLock mechanism
-                $currentBalance = CreditTransaction::where('user_id', $user->id)
-                    ->lockForUpdate()
-                    ->latest()
-                    ->value('running_balance') ?? 0;
+            $currentBalance = CreditTransaction::latestBalance($user->id);
 
-                if ($currentBalance < $amount) {
-                    return false;
-                }
+            if ($currentBalance < $amount) {
+                return false;
+            }
 
-                $newBalance = $currentBalance - $amount;
+            $newBalance = $currentBalance - $amount;
 
-                $transaction = new CreditTransaction([
-                    'user_id' => $user->id,
-                    'amount' => $amount,
-                    'type' => CreditTransaction::TYPE_DEBIT,
-                    'description' => $description,
-                    'reference' => $reference,
-                    'pack_id' => $pack_id,
-                    'running_balance' => $newBalance
-                ]);
+            $transaction = CreditTransaction::create([
+                'user_id' => $user->id,
+                'amount' => $amount,
+                'type' => CreditTransaction::TYPE_DEBIT,
+                'description' => $description,
+                'reference' => $reference,
+                'pack_id' => $pack_id,
+                'running_balance' => $newBalance
+            ]);
 
-                if (!$transaction->save()) {
-                    throw new RuntimeException('Failed to create debit transaction');
-                }
+            Log::info('Debit transaction completed', [
+                'user_id' => $user->id,
+                'amount' => $amount,
+                'new_balance' => $newBalance
+            ]);
 
-                Log::info('Debit transaction completed', [
-                    'user_id' => $user->id,
-                    'amount' => $amount,
-                    'new_balance' => $newBalance
-                ]);
-
-                return true;
-            }, 5);
+            return true;
         } catch (\Exception $e) {
             Log::error('Debit transaction failed', [
                 'user_id' => $user->id,
