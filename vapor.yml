@@ -5,7 +5,7 @@ environments:
         memory: 1024
         cli-memory: 512
         runtime: 'php-8.3:al2'
-        database: beefree-production-db
+        database: beefree
         queues:
             - images-production: 50
         queue-memory: 1024
