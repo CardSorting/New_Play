@@ -1,5 +1,5 @@
-id: 68879
-name: freebee
+id: 68880
+name: playmore
 default-environment: production
 environments:
     production:
@@ -7,9 +7,13 @@ environments:
         cli-memory: 512
         runtime: 'php-8.3:al2'
         database: beefree
+        timeout: 60
         build:
             - 'composer install --no-dev'
+            - 'php artisan config:clear'
+            - 'php artisan cache:clear'
             - 'php artisan event:cache'
             - 'npm ci && npm run build && rm -rf node_modules'
         deploy:
+            - 'php artisan config:cache'
             - 'php artisan migrate --force'
