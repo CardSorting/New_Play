@@ -3,7 +3,7 @@
 namespace App\Providers;
 
 use App\Contracts\Services\PaymentServiceInterface;
-use App\Services\{PaymentService, StripeService};
+use App\Services\PaymentService;
 use Illuminate\Support\ServiceProvider;
 use Stripe\Stripe;
 
@@ -11,11 +11,6 @@ class PaymentServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // Register the Stripe service as a singleton
-        $this->app->singleton(StripeService::class, function () {
-            return new StripeService();
-        });
-
         // Register our PaymentService implementation
         $this->app->singleton(PaymentServiceInterface::class, PaymentService::class);
 

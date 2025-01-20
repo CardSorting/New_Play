@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\PaymentService;
+use App\Contracts\Services\PaymentServiceInterface;
 use Illuminate\Http\{Request, Response};
 use Illuminate\Support\Facades\Log;
 use Stripe\WebhookSignature;
@@ -10,7 +10,7 @@ use Stripe\WebhookSignature;
 class StripeWebhookController extends Controller
 {
     public function __construct(
-        private readonly PaymentService $paymentService
+        private readonly PaymentServiceInterface $paymentService
     ) {}
 
     public function handle(Request $request): Response
