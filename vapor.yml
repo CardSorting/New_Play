@@ -7,7 +7,7 @@ environments:
         cli-memory: 512
         runtime: 'php-8.3:al2'
         database: beefree
-        cache: vapor-cache  # Use DynamoDB for cache
+        cache: production
         timeout: 60
         build:
             - 'composer install --no-dev'
@@ -17,5 +17,6 @@ environments:
         deploy:
             - 'php artisan config:cache'
         environment:
-            CACHE_DRIVER: vapor-cache
-            DYNAMODB_CACHE_TABLE: ${VAPOR_CACHE_TABLE}
+            CACHE_DRIVER: redis
+            REDIS_CLIENT: phpredis
+            REDIS_SCHEME: tls

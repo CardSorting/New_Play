@@ -3,9 +3,20 @@
 use Illuminate\Support\Str;
 
 return [
-    'default' => env('CACHE_DRIVER', 'dynamodb'),
+    'default' => env('CACHE_DRIVER', 'redis'),
 
     'stores' => [
+        'redis' => [
+            'driver' => 'redis',
+            'connection' => 'cache',
+            'lock_connection' => 'default',
+        ],
+
+        'file' => [
+            'driver' => 'file',
+            'path' => storage_path('framework/cache/data'),
+        ],
+
         'dynamodb' => [
             'driver' => 'dynamodb',
             'key' => env('AWS_ACCESS_KEY_ID'),
@@ -15,24 +26,10 @@ return [
             'endpoint' => env('DYNAMODB_ENDPOINT'),
         ],
 
-        'file' => [
-            'driver' => 'file',
-            'path' => storage_path('framework/cache/data'),
-        ],
-
-        'redis' => [
+        'vapor-cache' => [
             'driver' => 'redis',
             'connection' => 'cache',
             'lock_connection' => 'default',
-        ],
-
-        'vapor-cache' => [
-            'driver' => 'dynamodb',
-            'key' => env('AWS_ACCESS_KEY_ID'),
-            'secret' => env('AWS_SECRET_ACCESS_KEY'),
-            'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
-            'table' => env('DYNAMODB_CACHE_TABLE', 'cache'),
-            'endpoint' => env('DYNAMODB_ENDPOINT'),
         ],
     ],
 
