@@ -4,184 +4,91 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
-use App\Services\StripeService;
+use App\Services\PulseService;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class PulseController extends Controller
 {
-    private StripeService $stripeService;
+    private PulseService $pulseService;
 
-    public function __construct(StripeService $stripeService)
+    public function __construct(PulseService $pulseService)
     {
-        $this->stripeService = $stripeService;
+        $this->pulseService = $pulseService;
+        $this->middleware('auth');
     }
 
     public function index()
     {
+        $user = auth()->user();
+        $canClaim = $this->pulseService->canClaimDailyPulse($user);
+        $nextClaimTime = $this->pulseService->getNextPulseClaimTime($user);
+
         return view('pulse.index', [
             'amount' => 500,
-            'price' => 45,
-            'stripeKey' => config('services.stripe.key')
+            'canClaim' => $canClaim,
+            'nextClaimTime' => $nextClaimTime?->format('Y-m-d H:i:s'),
+            'creditBalance' => $this->pulseService->getCreditBalance($user)
         ]);
     }
 
-    public function createPaymentIntent(Request $request)
+    public function claim()
     {
-        Log::info('Starting createPaymentIntent', [
-            'user_id' => auth()->id() ?? 'unauthenticated',
-            'request_data' => $request->all()
+        $user = auth()->user();
+        
+        Log::info('Starting daily pulse claim', [
+            'user_id' => $user->id
         ]);
-        try {
-            // Validate the request
-            $validated = $request->validate([
-                'cart' => 'required|array',
-                'cart.*.id' => 'required|string',
-                'cart.*.quantity' => 'required|integer|min:1',
-                'cart.*.price' => 'required|numeric|min:0'
+
+        if (!$this->pulseService->canClaimDailyPulse($user)) {
+            Log::info('Daily pulse claim rejected - too soon', [
+                'user_id' => $user->id,
+                'last_claim' => $user->last_pulse_claim
             ]);
 
-            Log::info('Payment intent validation successful', [
-                'validated_data' => $validated
-            ]);
-
-            // Create Stripe payment intent with cart data
-            try {
-                $paymentIntent = $this->stripeService->createPaymentIntent($validated['cart']);
-                
-                Log::info('Payment intent created successfully', [
-                    'payment_intent_id' => $paymentIntent['id'] ?? null
-                ]);
-
-                return response()->json($paymentIntent, 200, [
-                    'Content-Type' => 'application/json'
-                ]);
-            } catch (\Stripe\Exception\ApiErrorException $e) {
-                Log::error('Stripe API error', [
-                    'message' => $e->getMessage(),
-                    'type' => $e->getError()->type,
-                    'code' => $e->getError()->code,
-                    'param' => $e->getError()->param,
-                ]);
-                return response()->json([
-                    'error' => 'Stripe API error',
-                    'message' => $e->getMessage()
-                ], 400, ['Content-Type' => 'application/json']);
-            } catch (\Exception $e) {
-                Log::error('Stripe create payment intent error', [
-                    'message' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-                return response()->json([
-                    'error' => 'Failed to create payment intent',
-                    'message' => $e->getMessage()
-                ], 500, ['Content-Type' => 'application/json']);
-            }
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            Log::error('Payment intent validation failed', [
-                'errors' => $e->errors()
-            ]);
             return response()->json([
-                'error' => 'Invalid request data',
-                'details' => $e->errors()
-            ], 422, ['Content-Type' => 'application/json']);
+                'error' => 'Cannot claim yet',
+                'next_claim' => $this->pulseService->getNextPulseClaimTime($user)?->format('Y-m-d H:i:s')
+            ], 400);
         }
-    }
 
-    public function confirmPayment(Request $request, $paymentIntentId)
-    {
-        Log::info('Starting confirmPayment', [
-            'payment_intent_id' => $paymentIntentId,
-            'user_id' => auth()->id() ?? 'unauthenticated',
-            'request_data' => $request->all()
-        ]);
         try {
-            // Validate the request
-            $validated = $request->validate([
-                'amount' => 'required|integer|min:1'
-            ]);
+            $claimed = $this->pulseService->claimDailyPulse($user);
 
-            Log::info('Payment confirmation validation successful', [
-                'validated_data' => $validated
-            ]);
-
-            // Confirm the Stripe payment first
-            $result = $this->stripeService->confirmPayment($paymentIntentId);
-            
-            Log::info('Payment confirmation result', [
-                'status' => $result['status'],
-                'payment_intent_id' => $paymentIntentId
-            ]);
-
-            // Only proceed with credit addition if payment is completed and user is authenticated
-            if ($result['status'] === 'COMPLETED') {
-                if (!auth()->check()) {
-                    Log::error('Cannot add credits - user not authenticated', [
-                        'payment_intent_id' => $paymentIntentId
-                    ]);
-                    return response()->json([
-                        'error' => 'Authentication required',
-                        'message' => 'Please log in to complete your purchase'
-                    ], 401, ['Content-Type' => 'application/json']);
-                }
-
-                try {
-                    Log::info('Adding credits to user account', [
-                        'user_id' => auth()->id(),
-                        'amount' => $validated['amount'],
-                        'payment_intent' => $paymentIntentId
-                    ]);
-
-                    auth()->user()->addCredits(
-                        $validated['amount'],
-                        'Stripe purchase',
-                        $paymentIntentId
-                    );
-
-                    Log::info('Credits added successfully');
-
-                    return response()->json([
-                        'status' => 'COMPLETED',
-                        'message' => 'Payment processed successfully'
-                    ], 200, ['Content-Type' => 'application/json']);
-                } catch (\Exception $e) {
-                    Log::error('Failed to add credits after payment', [
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString(),
-                        'user_id' => auth()->id(),
-                        'amount' => $validated['amount'],
-                        'payment_intent' => $paymentIntentId
-                    ]);
-
-                    return response()->json([
-                        'error' => 'Payment completed but failed to add credits',
-                        'message' => $e->getMessage()
-                    ], 500, ['Content-Type' => 'application/json']);
-                }
+            if (!$claimed) {
+                throw new \RuntimeException('Failed to claim daily pulse');
             }
-            
-            return response()->json([
-                'status' => $result['status'],
-                'message' => 'Payment not completed'
-            ], 400, ['Content-Type' => 'application/json']);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            Log::error('Payment confirmation validation failed', [
-                'errors' => $e->errors()
+            Log::info('Daily pulse claimed successfully', [
+                'user_id' => $user->id
             ]);
+
             return response()->json([
-                'error' => 'Invalid request data',
-                'details' => $e->errors()
-            ], 422, ['Content-Type' => 'application/json']);
+                'status' => 'success',
+                'message' => 'Daily pulse claimed successfully',
+                'new_balance' => $this->pulseService->getCreditBalance($user)
+            ]);
         } catch (\Exception $e) {
-            Log::error('Payment confirmation error', [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'payment_intent_id' => $paymentIntentId
+            Log::error('Failed to claim daily pulse', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage()
             ]);
+
             return response()->json([
-                'error' => 'Failed to confirm payment',
+                'error' => 'Failed to claim daily pulse',
                 'message' => $e->getMessage()
-            ], 500, ['Content-Type' => 'application/json']);
+            ], 500);
         }
+    }
+
+    public function checkStatus()
+    {
+        $user = auth()->user();
+        
+        return response()->json([
+            'can_claim' => $this->pulseService->canClaimDailyPulse($user),
+            'next_claim' => $this->pulseService->getNextPulseClaimTime($user)?->format('Y-m-d H:i:s'),
+            'credit_balance' => $this->pulseService->getCreditBalance($user)
+        ]);
     }
 }

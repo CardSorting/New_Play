@@ -5,9 +5,12 @@ namespace App\Services;
 use App\Models\{CreditTransaction, User};
 use Illuminate\Support\Facades\{DB, Log};
 use RuntimeException;
+use Carbon\Carbon;
 
 class PulseService
 {
+    private const DAILY_PULSE_AMOUNT = 500;
+
     public function getCreditBalance(User $user): int
     {
         try {
@@ -18,6 +21,44 @@ class PulseService
                 'error' => $e->getMessage()
             ]);
             throw new RuntimeException('Failed to fetch credit balance', 0, $e);
+        }
+    }
+
+    public function canClaimDailyPulse(User $user): bool
+    {
+        if (!$user->last_pulse_claim) {
+            return true;
+        }
+
+        $lastClaim = new Carbon($user->last_pulse_claim);
+        return $lastClaim->addDay()->isPast();
+    }
+
+    public function claimDailyPulse(User $user): bool
+    {
+        if (!$this->canClaimDailyPulse($user)) {
+            return false;
+        }
+
+        try {
+            DB::transaction(function () use ($user) {
+                $user->last_pulse_claim = now();
+                $user->save();
+
+                $this->addCredits(
+                    $user,
+                    self::DAILY_PULSE_AMOUNT,
+                    'Daily Pulse Claim'
+                );
+            });
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Failed to claim daily pulse', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage()
+            ]);
+            return false;
         }
     }
 
@@ -114,5 +155,14 @@ class PulseService
     public function getTransactionHistory(User $user, int $limit = 10)
     {
         return CreditTransaction::withBalanceChanges($user->id, $limit);
+    }
+
+    public function getNextPulseClaimTime(User $user): ?Carbon
+    {
+        if (!$user->last_pulse_claim) {
+            return null;
+        }
+
+        return (new Carbon($user->last_pulse_claim))->addDay();
     }
 }
