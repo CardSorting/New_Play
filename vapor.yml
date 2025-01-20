@@ -1,10 +1,10 @@
-id: 68887
-name: strawberry
+id: 68890
+name: blueberry
 default-environment: production
 environments:
     production:
-        memory: 1024
-        cli-memory: 512
+        memory: 2048
+        cli-memory: 1024
         runtime: 'php-8.3:al2'
         database: beefree
         cache: production
