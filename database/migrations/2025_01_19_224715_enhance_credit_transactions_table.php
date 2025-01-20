@@ -17,10 +17,11 @@ return new class extends Migration
             $table->index(['user_id', 'running_balance'], 'idx_user_balance');
         });
 
-        // Add check constraint using raw SQL
+        // Add check constraint for PostgreSQL
         DB::statement('ALTER TABLE credit_transactions ADD CONSTRAINT check_positive_amount CHECK (amount > 0)');
 
         // Initialize running balances for existing records
+        // Using PostgreSQL-specific window function syntax
         DB::statement('
             WITH running_totals AS (
                 SELECT 
@@ -52,10 +53,17 @@ return new class extends Migration
 
     public function down()
     {
+        // Check if indexes exist before dropping them
+        if (DB::select("SELECT 1 FROM pg_indexes WHERE indexname = 'idx_user_type_created'")) {
+            DB::statement('DROP INDEX IF EXISTS idx_user_type_created');
+        }
+        if (DB::select("SELECT 1 FROM pg_indexes WHERE indexname = 'idx_user_balance'")) {
+            DB::statement('DROP INDEX IF EXISTS idx_user_balance');
+        }
+
+        // Drop running_balance column
         Schema::table('credit_transactions', function (Blueprint $table) {
             $table->dropColumn('running_balance');
-            $table->dropIndex('idx_user_type_created');
-            $table->dropIndex('idx_user_balance');
         });
 
         // Drop check constraint
