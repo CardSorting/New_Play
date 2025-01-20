@@ -22,6 +22,6 @@ export default defineConfig({
         }
     },
     optimizeDeps: {
-        include: ['alpinejs']
+        include: ['alpinejs', 'uuid']
     }
 });

@@ -15,10 +15,10 @@ use Stripe\Stripe;
 class PaymentService implements PaymentServiceInterface
 {
     public function __construct(
-        private readonly StripeService $stripeService,
         private readonly PulseService $pulseService
     ) {
-        Stripe::setApiKey(config('stripe.secret'));
+        // Use services.stripe.secret instead of stripe.secret
+        Stripe::setApiKey(config('services.stripe.secret'));
     }
 
     /**
@@ -48,7 +48,9 @@ class PaymentService implements PaymentServiceInterface
             $params = [
                 'amount' => (int) ($amount * 100), // Convert to cents
                 'currency' => config('stripe.currency'),
-                'automatic_payment_methods' => config('stripe.automatic_payment_methods'),
+                'automatic_payment_methods' => [
+                    'enabled' => true
+                ],
                 'metadata' => [
                     'item_id' => $firstItem?->getId(),
                     'quantity' => $firstItem?->getQuantity(),
