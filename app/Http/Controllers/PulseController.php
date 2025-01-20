@@ -22,12 +22,12 @@ class PulseController extends Controller
     {
         $user = auth()->user();
         $canClaim = $this->pulseService->canClaimDailyPulse($user);
-        $nextClaimTime = $this->pulseService->getNextPulseClaimTime($user);
+        $nextClaimTime = $this->pulseService->getNextPulseClaimTimeString($user);
 
         return view('pulse.index', [
             'amount' => 500,
             'canClaim' => $canClaim,
-            'nextClaimTime' => $nextClaimTime?->format('Y-m-d H:i:s'),
+            'nextClaimTime' => $nextClaimTime,
             'creditBalance' => $this->pulseService->getCreditBalance($user)
         ]);
     }
@@ -43,12 +43,11 @@ class PulseController extends Controller
         if (!$this->pulseService->canClaimDailyPulse($user)) {
             Log::info('Daily pulse claim rejected - too soon', [
                 'user_id' => $user->id,
-                'last_claim' => $user->last_pulse_claim
             ]);
 
             return response()->json([
                 'error' => 'Cannot claim yet',
-                'next_claim' => $this->pulseService->getNextPulseClaimTime($user)?->format('Y-m-d H:i:s')
+                'next_claim' => $this->pulseService->getNextPulseClaimTimeString($user)
             ], 400);
         }
 
@@ -87,7 +86,7 @@ class PulseController extends Controller
         
         return response()->json([
             'can_claim' => $this->pulseService->canClaimDailyPulse($user),
-            'next_claim' => $this->pulseService->getNextPulseClaimTime($user)?->format('Y-m-d H:i:s'),
+            'next_claim' => $this->pulseService->getNextPulseClaimTimeString($user),
             'credit_balance' => $this->pulseService->getCreditBalance($user)
         ]);
     }

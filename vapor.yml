@@ -3,8 +3,8 @@ name: blueberry
 default-environment: production
 environments:
     production:
-        memory: 2048
-        cli-memory: 1024
+        memory: 1024
+        cli-memory: 512
         runtime: 'php-8.3:al2'
         database: beefree
         cache: production
