@@ -51,8 +51,7 @@ class CreditTransaction extends Model
     {
         return $query->where('user_id', $userId)
                     ->latest()
-                    ->select('running_balance')
-                    ->first();
+                    ->value('running_balance') ?? 0;
     }
 
     public function scopeWithBalanceChanges($query, int $userId, int $limit = 10)

@@ -11,8 +11,7 @@ class PulseService
     public function getCreditBalance(User $user): int
     {
         try {
-            $latestTransaction = CreditTransaction::latestBalance($user->id);
-            return $latestTransaction?->running_balance ?? 0;
+            return CreditTransaction::latestBalance($user->id);
         } catch (\Exception $e) {
             Log::error('Failed to fetch credit balance', [
                 'user_id' => $user->id,
