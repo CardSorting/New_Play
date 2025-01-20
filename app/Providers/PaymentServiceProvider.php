@@ -21,17 +21,12 @@ class PaymentServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Configure Stripe with our settings
-        Stripe::setApiKey(config('stripe.secret'));
+        Stripe::setApiKey(config('services.stripe.secret'));
         
         // Set Stripe API version if specified
-        if ($apiVersion = config('stripe.api_version')) {
+        if ($apiVersion = config('services.stripe.api_version')) {
             Stripe::setApiVersion($apiVersion);
         }
-
-        // Merge stripe config
-        $this->mergeConfigFrom(
-            __DIR__.'/../../config/stripe.php', 'stripe'
-        );
 
         // Register custom exception handling
         $this->registerExceptionHandling();

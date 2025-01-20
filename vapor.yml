@@ -12,6 +12,7 @@ environments:
         build:
             - 'composer install --no-dev'
             - 'php artisan config:clear'
+            - 'php artisan config:cache'
             - 'php artisan event:cache'
             - 'npm ci && npm run build && rm -rf node_modules'
         environment:
