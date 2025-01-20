@@ -23,13 +23,16 @@ class StripePayment {
             
             // Create container elements
             this.createFormElements();
+
+            // Format cart data correctly
+            const cart = [{
+                id: 'credits',
+                quantity: parseInt(this.amount, 10),
+                price: parseFloat(this.price)
+            }];
             
             // Create payment intent
-            const { clientSecret } = await stripeService.createPaymentIntent([{
-                id: 'credits',
-                quantity: this.amount,
-                price: this.price
-            }]);
+            const { clientSecret } = await stripeService.createPaymentIntent(cart);
 
             // Create and mount payment element
             const { elements, paymentElement } = await stripeService.createPaymentElement(clientSecret);
@@ -108,19 +111,19 @@ class StripePayment {
 
                         console.log('Backend confirmation result:', result);
 
-                    if (result.status === 'COMPLETED') {
-                        console.log('Credits added successfully, reloading page...');
-                        window.location.reload();
-                    } else if (result.error === 'Authentication required') {
-                        console.log('User needs to log in to complete purchase');
-                        // Store payment intent ID in session storage
-                        sessionStorage.setItem('pendingPaymentIntent', paymentIntent.id);
-                        // Redirect to login page with return URL
-                        window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
-                    } else {
-                        console.error('Backend confirmation failed:', result);
-                        this.showError(result.message || 'Payment completed but credits could not be added.');
-                    }
+                        if (result.status === 'COMPLETED') {
+                            console.log('Credits added successfully, reloading page...');
+                            window.location.reload();
+                        } else if (result.error === 'Authentication required') {
+                            console.log('User needs to log in to complete purchase');
+                            // Store payment intent ID in session storage
+                            sessionStorage.setItem('pendingPaymentIntent', paymentIntent.id);
+                            // Redirect to login page with return URL
+                            window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+                        } else {
+                            console.error('Backend confirmation failed:', result);
+                            this.showError(result.message || 'Payment completed but credits could not be added.');
+                        }
                     } catch (confirmError) {
                         console.error('Error confirming payment with backend:', confirmError);
                         this.showError('Error confirming payment. Please contact support.');

@@ -1,19 +1,15 @@
-id: 68797
-name: beefree
+id: 68879
+name: freebee
+default-environment: production
 environments:
     production:
         memory: 1024
         cli-memory: 512
         runtime: 'php-8.3:al2'
         database: beefree
-        queues:
-            - images-production: 50
-        queue-memory: 1024
-        queue-timeout: 900
-        queue-database-session-persist: true
         build:
             - 'composer install --no-dev'
             - 'php artisan event:cache'
-          # - 'npm ci && npm run build && rm -rf node_modules'
+            - 'npm ci && npm run build && rm -rf node_modules'
         deploy:
             - 'php artisan migrate --force'

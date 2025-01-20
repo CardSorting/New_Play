@@ -2,14 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\GenerateImage;
 use App\Models\Gallery;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 use Illuminate\Support\Str;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ImageController extends Controller
 {
@@ -164,7 +162,7 @@ class ImageController extends Controller
         $images = $query->orderBy('created_at', 'desc')
             ->paginate(6)
             ->withQueryString();
-
+        
         return view('images.gallery', compact('images'));
     }
 
@@ -185,10 +183,10 @@ class ImageController extends Controller
         ]);
 
         try {
-            // Initialize session with initial feedback only
+            // Initialize session with random feedback
             $stage = self::STAGES['pending'];
             $initialFeedback = $stage['feedback']['initial'][array_rand($stage['feedback']['initial'])];
-
+            
             $taskInfo = [
                 'status' => 'pending',
                 'stage_info' => [
@@ -197,6 +195,10 @@ class ImageController extends Controller
                     'substages' => $stage['substages'],
                     'feedback' => $initialFeedback
                 ],
+                'current_substage' => 0,
+                'started_at' => now(),
+                'last_updated' => now(),
+                'last_progress_update' => now(),
                 'prompt' => $request->prompt,
                 'aspect_ratio' => $request->aspect_ratio ?? '1:1',
                 'process_mode' => $request->process_mode ?? 'relax',
@@ -221,19 +223,23 @@ class ImageController extends Controller
 
             if ($response->successful()) {
                 $taskId = $response->json('data.task_id');
+                
+                // Update session with processing state
+                $stage = self::STAGES['processing'];
+                $processingFeedback = $stage['feedback']['composition'][array_rand($stage['feedback']['composition'])];
+                
                 $taskInfo['task_id'] = $taskId;
+                $taskInfo['status'] = 'processing';
+                $taskInfo['stage_info'] = [
+                    'message' => $stage['message'],
+                    'progress' => $stage['progress'],
+                    'substages' => $stage['substages'],
+                    'feedback' => $processingFeedback
+                ];
+                $taskInfo['feedback_history'][] = $processingFeedback;
+                
                 session(['image_task' => $taskInfo]);
-
-                // Dispatch the job to handle image generation in the background
-                GenerateImage::dispatch(
-                    $taskId,
-                    $request->prompt,
-                    $request->aspect_ratio ?? '1:1',
-                    $request->process_mode ?? 'relax',
-                    auth()->id(),
-                    $taskInfo['feedback_history']
-                );
-
+                
                 return redirect()
                     ->route('images.status', $taskId)
                     ->with('success', 'Image generation started successfully');
@@ -252,36 +258,8 @@ class ImageController extends Controller
         }
     }
 
-    public function status($taskId): View|RedirectResponse|StreamedResponse
+    public function status($taskId): View|RedirectResponse
     {
-        // For API requests, return a streamed response
-        if (request()->wantsJson()) {
-            return new StreamedResponse(function() use ($taskId) {
-                try {
-                    $response = Http::withHeaders([
-                        'x-api-key' => env('GOAPI_KEY'),
-                    ])->get("https://api.goapi.ai/api/v1/task/{$taskId}");
-
-                    if ($response->successful()) {
-                        $data = $response->json('data');
-                        echo "data: " . json_encode(['status' => $data['status']]) . "\n\n";
-                        ob_flush();
-                        flush();
-                        return;
-                    }
-                } catch (\Exception $e) {
-                    echo "data: " . json_encode(['error' => $e->getMessage()]) . "\n\n";
-                    ob_flush();
-                    flush();
-                    return;
-                }
-            }, 200, [
-                'Content-Type' => 'text/event-stream',
-                'Cache-Control' => 'no-cache',
-                'X-Accel-Buffering' => 'no'
-            ]);
-        }
-
         try {
             $response = Http::withHeaders([
                 'x-api-key' => env('GOAPI_KEY'),
@@ -290,14 +268,75 @@ class ImageController extends Controller
             if ($response->successful()) {
                 $data = $response->json('data');
                 $taskInfo = session('image_task', []);
-
+                
+                // Ensure we have valid task info
+                if (empty($taskInfo)) {
+                    // Reconstruct basic task info if session was lost
+                    $taskInfo = [
+                        'status' => $data['status'],
+                        'stage_info' => self::STAGES[$data['status']],
+                        'current_substage' => 0,
+                        'feedback_history' => []
+                    ];
+                }
+                
+                // Update progress based on time elapsed and status
+                if ($data['status'] === 'processing' && ($taskInfo['status'] ?? '') === 'processing') {
+                    $currentSubstage = $taskInfo['current_substage'];
+                    $totalSubstages = count(self::STAGES['processing']['substages']);
+                    $timeElapsed = now()->diffInSeconds($taskInfo['last_progress_update'] ?? now()->subSeconds(20));
+                    
+                    // Advance substage with variable timing (10-20 seconds)
+                    if ($timeElapsed >= rand(10, 20) && $currentSubstage < $totalSubstages - 1) {
+                        $stage = self::STAGES['processing'];
+                        $progress = min(90, 25 + ($currentSubstage + 1) * (65 / $totalSubstages));
+                        
+                        // Select contextual feedback based on current substage
+                        $feedbackType = match(true) {
+                            $currentSubstage < 2 => 'composition',
+                            $currentSubstage < 3 => 'elements',
+                            $currentSubstage < 4 => 'colors',
+                            default => 'details'
+                        };
+                        
+                        // Occasionally mix in encouraging feedback
+                        $feedback = rand(1, 5) === 1 
+                            ? $stage['feedback']['encouragement'][array_rand($stage['feedback']['encouragement'])]
+                            : $stage['feedback'][$feedbackType][array_rand($stage['feedback'][$feedbackType])];
+                        
+                        $taskInfo['current_substage'] = $currentSubstage + 1;
+                        $taskInfo['last_progress_update'] = now();
+                        $taskInfo['stage_info']['progress'] = $progress;
+                        $taskInfo['stage_info']['feedback'] = $feedback;
+                        $taskInfo['feedback_history'][] = $feedback;
+                        
+                        session(['image_task' => $taskInfo]);
+                    }
+                }
+                
                 // Handle completion
                 if ($data['status'] === 'completed' && isset($data['output']['image_urls'])) {
+                    $stage = self::STAGES['completed'];
+                    $feedback = rand(1, 3) === 1
+                        ? $stage['feedback']['artistic'][array_rand($stage['feedback']['artistic'])]
+                        : $stage['feedback']['standard'][array_rand($stage['feedback']['standard'])];
+                    
+                    $taskInfo['status'] = 'completed';
+                    $taskInfo['stage_info'] = [
+                        'message' => $stage['message'],
+                        'progress' => $stage['progress'],
+                        'substages' => $stage['substages'],
+                        'feedback' => $feedback
+                    ];
+                    $taskInfo['feedback_history'][] = $feedback;
+                    
+                    session(['image_task' => $taskInfo]);
+                    
                     // Check if images for this task already exist
                     $existingImages = Gallery::where('task_id', $data['task_id'])
                         ->where('type', 'image')
                         ->exists();
-
+                    
                     // Only create new gallery entries if they don't already exist
                     if (!$existingImages) {
                         foreach ($data['output']['image_urls'] as $imageUrl) {
@@ -316,11 +355,27 @@ class ImageController extends Controller
                             ]);
                         }
                     }
+                    
                     session()->forget('image_task');
                 } elseif ($data['status'] === 'failed') {
+                    $stage = self::STAGES['failed'];
+                    $feedback = rand(1, 2) === 1
+                        ? $stage['feedback']['gentle'][array_rand($stage['feedback']['gentle'])]
+                        : $stage['feedback']['technical'][array_rand($stage['feedback']['technical'])];
+                    
+                    $taskInfo['status'] = 'failed';
+                    $taskInfo['stage_info'] = [
+                        'message' => $stage['message'],
+                        'progress' => $stage['progress'],
+                        'substages' => $stage['substages'],
+                        'feedback' => $feedback
+                    ];
+                    $taskInfo['feedback_history'][] = $feedback;
+                    
+                    session(['image_task' => $taskInfo]);
                     session()->forget('image_task');
                 }
-
+                
                 // Get the gallery entry for this task if it exists
                 $gallery = Gallery::where('task_id', $data['task_id'])
                     ->where('type', 'image')
