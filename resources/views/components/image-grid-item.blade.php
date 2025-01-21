@@ -1,16 +1,18 @@
 <div class="bg-white overflow-hidden shadow-sm rounded-lg">
-    <div class="image-container relative h-64 w-full cursor-pointer rounded-lg overflow-hidden" 
+    <div class="image-container relative h-[45%] w-full cursor-pointer rounded-lg overflow-hidden mx-2 mt-2 mb-2"
          onclick="ImageDetailsModal.show('{{ addslashes($image->prompt) }}', '{{ $image->image_url }}', '{{ $image->aspect_ratio }}', '{{ $image->process_mode }}', '{{ $image->task_id }}', '{{ $image->created_at_for_humans }}', {{ json_encode($image->metadata) }})"
          role="button"
          tabindex="0"
          aria-label="View details for image: {{ $image->prompt }}">
         <img src="{{ $image->image_url }}" 
              alt="{{ $image->prompt }}"
-             class="w-full h-full object-cover rounded-lg">
+             class="w-full h-full object-cover object-center rounded-lg border border-[#171314]">
         
-        <div class="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity duration-200 rounded-lg">
-            <div class="absolute inset-0 flex items-center justify-center p-6">
-                <p class="text-white text-center line-clamp-3 text-shadow-lg font-medium">{{ $image->prompt }}</p>
+        <div class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-white/10 rounded-lg">
+            <div class="absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity duration-200">
+                <div class="absolute inset-0 flex items-center justify-center p-6">
+                    <p class="text-white text-center line-clamp-3 text-shadow-lg font-medium">{{ $image->prompt }}</p>
+                </div>
             </div>
         </div>
     </div>

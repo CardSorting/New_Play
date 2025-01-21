@@ -3,8 +3,8 @@
      x-on:mouseleave="hoveredCard = null"
      :class="{ 'z-20': hoveredCard === $el }">
     <!-- Enhanced Card Container with Advanced Lighting Effects -->
-    <div class="card-container relative w-full h-full transition-all duration-300 ease-out p-8"
-         style="aspect-ratio: 2.5/3.5; min-height: 400px;">
+        <div class="card-container relative w-full h-full transition-all duration-300 ease-out p-4"
+         style="aspect-ratio: 2.5/3.5; min-height: 300px;">
         <!-- Multi-layered Shadow System -->
         <div class="absolute inset-8 rounded-2xl transition-all duration-300 ease-out opacity-90
              before:absolute before:inset-0 before:rounded-2xl before:shadow-[0_8px_30px_rgba(0,0,0,0.3),0_0_60px_rgba(0,0,0,0.2)]
@@ -36,7 +36,7 @@
             <!-- 3D Transform Container with Enhanced Animations and Depth -->
             <div class="relative h-full w-full rounded-2xl overflow-hidden transform-gpu preserve-3d
                         transition-all duration-300 ease-out
-                        group-hover:scale-[1.02] group-hover:translate-y-[-8px]
+                        group-hover:scale-[1.02] group-hover:translate-y-[-4px]
                         before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/10 before:to-black/5 before:opacity-0 before:group-hover:opacity-100 before:transition-opacity before:duration-300
                         after:absolute after:inset-0 after:bg-black/5 after:opacity-0 after:group-hover:opacity-100 after:transition-opacity after:duration-300">
                 <livewire:card-display :card="$card" :wire:key="'card-'.$card['name']" />

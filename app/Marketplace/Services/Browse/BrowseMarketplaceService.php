@@ -53,18 +53,8 @@ class BrowseMarketplaceService
                 ];
             }
 
-            // Lock and check buyer's balance
-            $buyerCredits = CreditTransaction::where('user_id', $buyer->id)
-                ->where('type', 'credit')
-                ->lockForUpdate()
-                ->sum('amount');
-
-            $buyerDebits = CreditTransaction::where('user_id', $buyer->id)
-                ->where('type', 'debit')
-                ->lockForUpdate()
-                ->sum('amount');
-
-            $buyerBalance = $buyerCredits - $buyerDebits;
+            // Check buyer's balance using Redis
+            $buyerBalance = CreditTransaction::latestBalance($buyer->id);
             if ($buyerBalance < $pack->price) {
                 return [
                     'success' => false,
@@ -76,7 +66,7 @@ class BrowseMarketplaceService
             CreditTransaction::create([
                 'user_id' => $buyer->id,
                 'amount' => $pack->price,
-                'type' => 'debit',
+                'type' => CreditTransaction::TYPE_DEBIT,
                 'description' => 'Purchase pack',
                 'pack_id' => $pack->id
             ]);
@@ -85,7 +75,7 @@ class BrowseMarketplaceService
             CreditTransaction::create([
                 'user_id' => $pack->user_id,
                 'amount' => $pack->price,
-                'type' => 'credit',
+                'type' => CreditTransaction::TYPE_CREDIT,
                 'description' => 'Sold pack',
                 'pack_id' => $pack->id
             ]);
@@ -104,5 +94,4 @@ class BrowseMarketplaceService
             ];
         });
     }
-
 }

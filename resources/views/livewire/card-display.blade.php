@@ -95,7 +95,7 @@
                     <div class="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-[#171314]/40 z-30"></div>
                     <img src="{{ $card['image_url'] }}" 
                          alt="{{ $card['name'] }}" 
-                         class="w-full h-full object-contain object-center transform transition-all duration-700 ease-out
+                         class="w-full h-full object-cover object-center transform transition-all duration-700 ease-out
                                 group-hover:scale-110 group-hover:filter group-hover:brightness-110"
                          loading="lazy">
                     <div class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-white/10 opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
@@ -187,25 +187,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- Quick Actions Menu -->
-        <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
-            <div class="flex space-x-2">
-                <button wire:click="toggleDetails" 
-                        class="bg-gray-800 text-white p-2 rounded-full hover:bg-gray-700 transition-colors duration-200 shadow-lg">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                </button>
-                <button wire:click="flipCard" 
-                        class="bg-purple-600 text-white p-2 rounded-full hover:bg-purple-500 transition-colors duration-200 shadow-lg">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                    </svg>
-                </button>
-            </div>
-        </div>
-    </div>
 
     <!-- Details Modal -->
     @if($showDetails)
