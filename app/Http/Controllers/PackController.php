@@ -46,7 +46,7 @@ class PackController extends Controller
             'is_sealed' => false
         ]);
 
-        return redirect()->route('packs.show', $pack)
+        return redirect()->route('packs.index')
             ->with('success', 'Pack created successfully');
     }
 
@@ -110,19 +110,24 @@ class PackController extends Controller
     public function open(Pack $pack)
     {
         if (!$pack->is_sealed) {
-            return redirect()->route('packs.show', $pack)
+            return redirect()->route('cards.index', ['view' => 'grid'])
                 ->with('error', 'This pack must be sealed before it can be opened.');
         }
 
         try {
             DB::beginTransaction();
 
-            // Load cards
-            $cards = $pack->cards()->get();
-
-            // Add cards to user's collection
+            // Load cards with lock
+            $cards = $pack->cards()->lockForUpdate()->get();
+            
+            // Prepare gallery entries
+            $galleryEntries = [];
+            $now = now();
+            $userId = auth()->id();
+            
             foreach ($cards as $card) {
-                auth()->user()->galleries()->create([
+                $galleryEntries[] = [
+                    'user_id' => $userId,
                     'type' => 'card',
                     'name' => $card->name,
                     'image_url' => $card->image_url,
@@ -132,25 +137,37 @@ class PackController extends Controller
                     'power_toughness' => $card->power_toughness,
                     'abilities' => $card->abilities,
                     'flavor_text' => $card->flavor_text,
-                    'metadata' => [
+                    'metadata' => json_encode([
                         'opened_from_pack' => $pack->id,
-                        'opened_at' => now()->toISOString()
-                    ]
-                ]);
-
-                // Delete the global card
-                $card->delete();
+                        'opened_at' => $now->toISOString()
+                    ]),
+                    'created_at' => $now,
+                    'updated_at' => $now
+                ];
             }
 
+            // Bulk insert gallery entries
+            Gallery::insert($galleryEntries);
+
+            // Bulk delete global cards
+            GlobalCard::whereIn('id', $cards->pluck('id'))->delete();
+
             // Mark pack as opened
-            $pack->update(['opened_at' => now()]);
+            $pack->update(['opened_at' => $now]);
 
             DB::commit();
 
-            return redirect()->route('cards.index')
-                ->with('success', 'Pack opened successfully! The cards have been added to your collection.');
+            return redirect('/dashboard/cards?view=grid')
+                ->with('success', 'Pack opened successfully! The cards have been added to your collection.')
+                ->with('new_cards', $galleryEntries);
         } catch (\Exception $e) {
             DB::rollBack();
+            logger()->error('Pack opening failed', [
+                'error' => $e->getMessage(),
+                'pack_id' => $pack->id,
+                'user_id' => auth()->id(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return redirect()->route('packs.index')
                 ->with('error', 'Failed to open pack. Please try again.');
         }

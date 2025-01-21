@@ -52,10 +52,14 @@ class CardController extends Controller
             session()->flash('success', 'Pack opened successfully! The cards have been added to your collection.');
         }
 
+        // Get new cards from session if redirected from pack opening
+        $newCards = session()->get('new_cards', []);
+        
         return view('dashboard.cards.index', [
             'cards' => $cards,
             'currentTab' => $tab,
-            'currentView' => $view
+            'currentView' => $view,
+            'newCards' => $newCards
         ]);
     }
 

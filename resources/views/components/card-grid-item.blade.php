@@ -1,7 +1,15 @@
-<div class="card-item transform transition-all duration-500 h-full w-full group"
+<div class="card-item transform transition-all duration-500 h-full w-full group relative"
      x-on:mouseenter="hoveredCard = $el"
      x-on:mouseleave="hoveredCard = null"
      :class="{ 'z-20': hoveredCard === $el }">
+    @if($isNew ?? false)
+        <!-- New Card Badge -->
+        <div class="absolute -top-2 -right-2 z-30 bg-indigo-500 text-white px-2 py-1 rounded-full text-xs font-bold shadow-lg animate-pulse">
+            NEW
+        </div>
+        <!-- Glow Effect -->
+        <div class="absolute inset-0 rounded-2xl bg-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+    @endif
     <!-- Enhanced Card Container with Advanced Lighting Effects -->
         <div class="card-container relative w-full h-full transition-all duration-300 ease-out p-4"
          style="aspect-ratio: 2.5/3.5; min-height: 300px;">

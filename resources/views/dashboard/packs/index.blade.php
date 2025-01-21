@@ -64,10 +64,12 @@
                                                         <div class="text-gold/70 text-xs font-medium uppercase tracking-widest mb-4">
                                                             Premium Collection
                                                         </div>
-                                                        <a href="{{ route('packs.open', ['pack' => $pack->id]) }}" 
-                                                           class="inline-block px-6 py-2 bg-gold/20 hover:bg-gold/30 text-gold border border-gold/50 rounded-md transition-colors duration-200 text-sm font-medium uppercase tracking-wider">
-                                                            Open Pack
-                                                        </a>
+                                                        <form method="POST" action="{{ route('packs.open', ['pack' => $pack->id]) }}" onsubmit="return confirm('Are you sure you want to open this pack?')">
+                                                            @csrf
+                                                            <button type="submit" class="inline-block px-6 py-2 bg-gold/20 hover:bg-gold/30 text-gold border border-gold/50 rounded-md transition-colors duration-200 text-sm font-medium uppercase tracking-wider">
+                                                                Open Pack
+                                                            </button>
+                                                        </form>
                                                     </div>
                                                     <!-- Corner decorations -->
                                                     <div class="absolute top-6 left-6 w-3 h-3 border-t-2 border-l-2 border-gold opacity-50"></div>
