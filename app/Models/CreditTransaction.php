@@ -23,7 +23,33 @@ class CreditTransaction extends Model
     protected static function booted()
     {
         static::created(function ($transaction) {
-            CreditTransactionRedisService::syncToRedis($transaction);
+            try {
+                CreditTransactionRedisService::syncToRedis($transaction);
+            } catch (\Exception $e) {
+                \Log::error('Failed to sync credit transaction to Redis', [
+                    'transaction_id' => $transaction->id,
+                    'user_id' => $transaction->user_id,
+                    'error' => $e->getMessage()
+                ]);
+                // Still allow the transaction to be created even if Redis sync fails
+                // The fallback in latestBalance() will handle this case
+            }
+        });
+        
+        // Ensure Redis is synced for the user when retrieving transactions
+        static::retrieved(function ($transaction) {
+            try {
+                if (!\Cache::has("user:{$transaction->user_id}:credit_sync")) {
+                    CreditTransactionRedisService::syncFromDatabase($transaction->user_id);
+                    // Cache this sync for 5 minutes to prevent redundant syncs
+                    \Cache::put("user:{$transaction->user_id}:credit_sync", true, now()->addMinutes(5));
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Failed to sync credit transactions from database to Redis', [
+                    'user_id' => $transaction->user_id,
+                    'error' => $e->getMessage()
+                ]);
+            }
         });
     }
 
@@ -32,7 +58,19 @@ class CreditTransaction extends Model
         if ($attributes['amount'] <= 0) {
             throw new \InvalidArgumentException('Transaction amount must be positive');
         }
-        return parent::create($attributes);
+
+        try {
+            return \DB::transaction(function () use ($attributes) {
+                $transaction = parent::create($attributes);
+                return $transaction;
+            });
+        } catch (\Exception $e) {
+            \Log::error('Failed to create credit transaction', [
+                'attributes' => $attributes,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
     }
 
     public function user(): BelongsTo

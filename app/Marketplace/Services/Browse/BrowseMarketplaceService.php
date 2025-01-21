@@ -5,6 +5,7 @@ namespace App\Marketplace\Services\Browse;
 use App\Models\Pack;
 use App\Models\User;
 use App\Models\CreditTransaction;
+use App\Services\CreditTransactionRedisService;
 use App\Services\PulseService;
 use Illuminate\Support\Facades\DB;
 
@@ -44,6 +45,9 @@ class BrowseMarketplaceService
         }
 
         return DB::transaction(function () use ($pack, $buyer) {
+            // Set a shorter timeout for the transaction
+            DB::statement('SET LOCAL statement_timeout = 10000'); // 10 seconds
+            
             // Lock the pack for update
             $pack = Pack::where('id', $pack->id)->lockForUpdate()->first();
             if (!$pack || !$pack->canBePurchased()) {
@@ -53,45 +57,57 @@ class BrowseMarketplaceService
                 ];
             }
 
-            // Check buyer's balance using Redis
-            $buyerBalance = CreditTransaction::latestBalance($buyer->id);
-            if ($buyerBalance < $pack->price) {
+            try {
+                // Check buyer's balance using optimized Redis service
+                $buyerBalance = CreditTransactionRedisService::latestBalance($buyer->id);
+                if ($buyerBalance < $pack->price) {
+                    return [
+                        'success' => false,
+                        'message' => 'Insufficient credits'
+                    ];
+                }
+
+                // Create debit transaction for buyer
+                CreditTransaction::create([
+                    'user_id' => $buyer->id,
+                    'amount' => $pack->price,
+                    'type' => CreditTransaction::TYPE_DEBIT,
+                    'description' => 'Purchase pack',
+                    'pack_id' => $pack->id
+                ]);
+
+                // Create credit transaction for seller
+                CreditTransaction::create([
+                    'user_id' => $pack->user_id,
+                    'amount' => $pack->price,
+                    'type' => CreditTransaction::TYPE_CREDIT,
+                    'description' => 'Sold pack',
+                    'pack_id' => $pack->id
+                ]);
+
+                // Transfer ownership
+                $pack->update([
+                    'user_id' => $buyer->id,
+                    'is_listed' => false,
+                    'listed_at' => null,
+                    'price' => null
+                ]);
+
+                return [
+                    'success' => true,
+                    'message' => 'Pack purchased successfully'
+                ];
+            } catch (\Exception $e) {
+                \Log::error('Pack purchase failed', [
+                    'pack_id' => $pack->id,
+                    'buyer_id' => $buyer->id,
+                    'error' => $e->getMessage()
+                ]);
                 return [
                     'success' => false,
-                    'message' => 'Insufficient credits'
+                    'message' => 'An error occurred while processing your purchase. Please try again.'
                 ];
             }
-
-            // Create debit transaction for buyer
-            CreditTransaction::create([
-                'user_id' => $buyer->id,
-                'amount' => $pack->price,
-                'type' => CreditTransaction::TYPE_DEBIT,
-                'description' => 'Purchase pack',
-                'pack_id' => $pack->id
-            ]);
-
-            // Create credit transaction for seller
-            CreditTransaction::create([
-                'user_id' => $pack->user_id,
-                'amount' => $pack->price,
-                'type' => CreditTransaction::TYPE_CREDIT,
-                'description' => 'Sold pack',
-                'pack_id' => $pack->id
-            ]);
-
-            // Transfer ownership
-            $pack->update([
-                'user_id' => $buyer->id,
-                'is_listed' => false,
-                'listed_at' => null,
-                'price' => null
-            ]);
-
-            return [
-                'success' => true,
-                'message' => 'Pack purchased successfully'
-            ];
         });
     }
 }
