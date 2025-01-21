@@ -113,6 +113,19 @@ class PackController extends Controller
                 ->with('error', 'This pack must be sealed before it can be opened.');
         }
 
+        // Load cards for the reveal view
+        $pack->load('cards');
+        
+        return view('dashboard.packs.reveal', compact('pack'));
+    }
+
+    public function completeOpen(Pack $pack)
+    {
+        if (!$pack->is_sealed) {
+            return redirect()->route('packs.show', $pack)
+                ->with('error', 'This pack must be sealed before it can be opened.');
+        }
+
         try {
             DB::beginTransaction();
 
