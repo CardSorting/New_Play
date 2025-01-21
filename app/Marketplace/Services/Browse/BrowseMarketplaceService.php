@@ -5,7 +5,6 @@ namespace App\Marketplace\Services\Browse;
 use App\Models\Pack;
 use App\Models\User;
 use App\Models\CreditTransaction;
-use App\Services\CreditTransactionRedisService;
 use App\Services\PulseService;
 use Illuminate\Support\Facades\DB;
 
@@ -58,9 +57,12 @@ class BrowseMarketplaceService
             }
 
             try {
-                // Check buyer's balance using optimized Redis service
-                $buyerBalance = CreditTransactionRedisService::latestBalance($buyer->id);
-                if ($buyerBalance < $pack->price) {
+                // Check buyer's balance using PostgreSQL running balance
+                $buyerBalance = CreditTransaction::where('user_id', $buyer->id)
+                    ->latest('created_at')
+                    ->value('running_balance');
+                    
+                if (!$buyerBalance || $buyerBalance < $pack->price) {
                     return [
                         'success' => false,
                         'message' => 'Insufficient credits'

@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use App\Services\CreditTransactionRedisService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 
 class CreditTransaction extends Model
 {
@@ -14,7 +14,8 @@ class CreditTransaction extends Model
         'type',
         'description',
         'reference',
-        'pack_id'
+        'pack_id',
+        'running_balance'
     ];
 
     public const TYPE_CREDIT = 'credit';
@@ -22,55 +23,21 @@ class CreditTransaction extends Model
 
     protected static function booted()
     {
-        static::created(function ($transaction) {
-            try {
-                CreditTransactionRedisService::syncToRedis($transaction);
-            } catch (\Exception $e) {
-                \Log::error('Failed to sync credit transaction to Redis', [
-                    'transaction_id' => $transaction->id,
-                    'user_id' => $transaction->user_id,
-                    'error' => $e->getMessage()
-                ]);
-                // Still allow the transaction to be created even if Redis sync fails
-                // The fallback in latestBalance() will handle this case
+        static::creating(function ($transaction) {
+            if ($transaction->amount <= 0) {
+                throw new \InvalidArgumentException('Transaction amount must be positive');
             }
-        });
-        
-        // Ensure Redis is synced for the user when retrieving transactions
-        static::retrieved(function ($transaction) {
-            try {
-                if (!\Cache::has("user:{$transaction->user_id}:credit_sync")) {
-                    CreditTransactionRedisService::syncFromDatabase($transaction->user_id);
-                    // Cache this sync for 5 minutes to prevent redundant syncs
-                    \Cache::put("user:{$transaction->user_id}:credit_sync", true, now()->addMinutes(5));
-                }
-            } catch (\Exception $e) {
-                \Log::warning('Failed to sync credit transactions from database to Redis', [
-                    'user_id' => $transaction->user_id,
-                    'error' => $e->getMessage()
-                ]);
-            }
-        });
-    }
 
-    public static function create(array $attributes): CreditTransaction
-    {
-        if ($attributes['amount'] <= 0) {
-            throw new \InvalidArgumentException('Transaction amount must be positive');
-        }
+            // Calculate running balance
+            $previousBalance = self::where('user_id', $transaction->user_id)
+                ->orderByDesc('created_at')
+                ->value('running_balance') ?? 0;
 
-        try {
-            return \DB::transaction(function () use ($attributes) {
-                $transaction = parent::create($attributes);
-                return $transaction;
-            });
-        } catch (\Exception $e) {
-            \Log::error('Failed to create credit transaction', [
-                'attributes' => $attributes,
-                'error' => $e->getMessage()
-            ]);
-            throw $e;
-        }
+            $transaction->running_balance = $previousBalance + 
+                ($transaction->type === self::TYPE_CREDIT 
+                    ? $transaction->amount 
+                    : -$transaction->amount);
+        });
     }
 
     public function user(): BelongsTo
@@ -85,16 +52,55 @@ class CreditTransaction extends Model
 
     public static function latestBalance(int $userId): int
     {
-        return CreditTransactionRedisService::latestBalance($userId);
+        return self::where('user_id', $userId)
+            ->orderByDesc('created_at')
+            ->value('running_balance') ?? 0;
     }
 
     public static function withBalanceChanges(int $userId, int $limit = 10): array
     {
-        return CreditTransactionRedisService::withBalanceChanges($userId, $limit);
+        return self::where('user_id', $userId)
+            ->orderByDesc('created_at')
+            ->limit($limit)
+            ->get()
+            ->map(function ($transaction) {
+                return [
+                    'id' => $transaction->id,
+                    'amount' => $transaction->amount,
+                    'type' => $transaction->type,
+                    'description' => $transaction->description,
+                    'created_at' => $transaction->created_at,
+                    'running_balance' => $transaction->running_balance
+                ];
+            })
+            ->toArray();
     }
 
-    public static function syncRedisCache(int $userId): void
+    public static function getBalanceHistory(int $userId, int $limit = 10): array
     {
-        CreditTransactionRedisService::syncFromDatabase($userId);
+        return self::where('user_id', $userId)
+            ->orderByDesc('created_at')
+            ->limit($limit)
+            ->get()
+            ->map(function ($transaction) {
+                return [
+                    'id' => $transaction->id,
+                    'amount' => $transaction->amount,
+                    'type' => $transaction->type,
+                    'description' => $transaction->description,
+                    'created_at' => $transaction->created_at,
+                    'running_balance' => $transaction->running_balance
+                ];
+            })
+            ->toArray();
+    }
+
+    public static function createTransaction(array $attributes): self
+    {
+        return DB::transaction(function () use ($attributes) {
+            $transaction = new self($attributes);
+            $transaction->save();
+            return $transaction;
+        });
     }
 }

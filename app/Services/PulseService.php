@@ -6,13 +6,10 @@ use App\Models\{CreditTransaction, User};
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Cache;
 
 class PulseService
 {
     private const DAILY_PULSE_AMOUNT = 500;
-    private const PULSE_CLAIM_CACHE_KEY_PREFIX = 'last_pulse_claim_';
-
     public function getCreditBalance(User $user): int
     {
         try {
@@ -28,15 +25,11 @@ class PulseService
 
     public function canClaimDailyPulse(User $user): bool
     {
-        $cacheKey = self::PULSE_CLAIM_CACHE_KEY_PREFIX . $user->id;
-        $lastClaim = Cache::get($cacheKey);
-
-        if (!$lastClaim) {
+        if (!$user->last_pulse_claim) {
             return true;
         }
 
-        $lastClaim = new Carbon($lastClaim);
-        return $lastClaim->addDay()->isPast();
+        return Carbon::parse($user->last_pulse_claim)->addDay()->isPast();
     }
 
     public function claimDailyPulse(User $user): bool
@@ -46,8 +39,7 @@ class PulseService
         }
 
         try {
-            $cacheKey = self::PULSE_CLAIM_CACHE_KEY_PREFIX . $user->id;
-            Cache::put($cacheKey, now(), now()->addDay());
+            $user->update(['last_pulse_claim' => now()]);
 
             $this->addCredits(
                 $user,
@@ -141,14 +133,11 @@ class PulseService
 
     public function getNextPulseClaimTime(User $user): ?Carbon
     {
-        $cacheKey = self::PULSE_CLAIM_CACHE_KEY_PREFIX . $user->id;
-        $lastClaim = Cache::get($cacheKey);
-
-        if (!$lastClaim) {
+        if (!$user->last_pulse_claim) {
             return null;
         }
 
-        return (new Carbon($lastClaim))->addDay();
+        return Carbon::parse($user->last_pulse_claim)->addDay();
     }
 
     public function getNextPulseClaimTimeString(User $user): ?string
