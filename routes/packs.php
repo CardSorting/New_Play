@@ -16,7 +16,7 @@ Route::middleware(['auth', 'verified'])
         // Individual pack management
         Route::prefix('{pack}')->group(function () {
             Route::get('/', 'show')->name('show');
-    Route::post('/open', 'open')->name('open')->middleware('can:view,pack');
+            Route::post('/open', 'open')->name('open')->middleware('can:view,pack');
             
             // Pack building (requires pack to not be sealed)
             Route::middleware('can:update,pack')->group(function () {

@@ -4,14 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Pack;
 use App\Models\Gallery;
-use App\Models\GlobalCard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
 class PackController extends Controller
 {
-
     public function index()
     {
         $packs = Pack::where('user_id', Auth::id())
@@ -65,6 +63,7 @@ class PackController extends Controller
         $pack->load('cards');
         $availableCards = Gallery::where('user_id', Auth::id())
             ->where('type', 'card')
+            ->where('is_in_pack', false)
             ->orderBy('created_at', 'desc')
             ->get();
         
@@ -90,13 +89,11 @@ class PackController extends Controller
         try {
             DB::beginTransaction();
 
-            $gallery = Gallery::findOrFail($validated['card_id']);
+            $card = Gallery::findOrFail($validated['card_id']);
             
-            // Create global card from gallery card
-            GlobalCard::createFromGallery($gallery, $pack->id);
-            
-            // Remove card from user's gallery
-            $gallery->delete();
+            if (!$pack->addCard($card)) {
+                throw new \Exception('Failed to add card to pack');
+            }
 
             DB::commit();
 
@@ -110,56 +107,45 @@ class PackController extends Controller
     public function open(Pack $pack)
     {
         if (!$pack->is_sealed) {
-            return redirect()->route('cards.index', ['view' => 'grid'])
+            return redirect()->route('packs.index')
                 ->with('error', 'This pack must be sealed before it can be opened.');
         }
 
         try {
             DB::beginTransaction();
 
-            // Load cards with lock
             $cards = $pack->cards()->lockForUpdate()->get();
-            
-            // Prepare gallery entries
-            $galleryEntries = [];
-            $now = now();
-            $userId = auth()->id();
-            
-            foreach ($cards as $card) {
-                $galleryEntries[] = [
-                    'user_id' => $userId,
-                    'type' => 'card',
-                    'name' => $card->name,
-                    'image_url' => $card->image_url,
-                    'rarity' => $card->rarity,
-                    'card_type' => $card->card_type,
-                    'mana_cost' => $card->mana_cost,
-                    'power_toughness' => $card->power_toughness,
-                    'abilities' => $card->abilities,
-                    'flavor_text' => $card->flavor_text,
-                    'metadata' => json_encode([
-                        'opened_from_pack' => $pack->id,
-                        'opened_at' => $now->toISOString()
-                    ]),
-                    'created_at' => $now,
-                    'updated_at' => $now
-                ];
+            if ($cards->isEmpty()) {
+                throw new \Exception('No cards found in pack.');
             }
 
-            // Bulk insert gallery entries
-            Gallery::insert($galleryEntries);
+            $now = now();
+            $userId = auth()->id();
 
-            // Bulk delete global cards
-            GlobalCard::whereIn('id', $cards->pluck('id'))->delete();
+            // Update card ownership and remove from pack
+            foreach ($cards as $card) {
+                $card->update([
+                    'user_id' => $userId,
+                    'is_in_pack' => false,
+                    'pack_id' => null,
+                    'metadata' => array_merge($card->metadata ?? [], [
+                        'opened_from_pack' => $pack->id,
+                        'opened_at' => $now->toISOString()
+                    ])
+                ]);
+            }
 
             // Mark pack as opened
-            $pack->update(['opened_at' => $now]);
+            if (!$pack->update(['opened_at' => $now])) {
+                throw new \Exception('Failed to mark pack as opened.');
+            }
 
             DB::commit();
 
-            return redirect('/dashboard/cards?view=grid')
+            return redirect()->route('cards.index', ['view' => 'grid'])
                 ->with('success', 'Pack opened successfully! The cards have been added to your collection.')
-                ->with('new_cards', $galleryEntries);
+                ->with('new_cards', $cards);
+
         } catch (\Exception $e) {
             DB::rollBack();
             logger()->error('Pack opening failed', [
@@ -169,7 +155,7 @@ class PackController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
             return redirect()->route('packs.index')
-                ->with('error', 'Failed to open pack. Please try again.');
+                ->with('error', 'Failed to open pack: ' . $e->getMessage());
         }
     }
 
@@ -187,5 +173,4 @@ class PackController extends Controller
 
         return back()->with('success', 'Pack has been sealed and can now be listed on the marketplace');
     }
-
 }

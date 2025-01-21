@@ -39,7 +39,7 @@ class Pack extends Model
 
     public function cards(): HasMany
     {
-        return $this->hasMany(GlobalCard::class);
+        return $this->hasMany(Gallery::class)->where('is_in_pack', true);
     }
 
     public function creditTransactions(): HasMany
@@ -168,6 +168,24 @@ class Pack extends Model
         $this->clearMarketplaceCache();
 
         return true;
+    }
+
+    public function addCard(Gallery $card): bool
+    {
+        if ($this->is_sealed || $this->cards()->count() >= $this->card_limit) {
+            return false;
+        }
+
+        return $card->addToPack($this);
+    }
+
+    public function removeCard(Gallery $card): bool
+    {
+        if ($this->is_sealed) {
+            return false;
+        }
+
+        return $card->removeFromPack();
     }
 
     protected function clearMarketplaceCache(): void
