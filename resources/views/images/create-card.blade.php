@@ -77,7 +77,7 @@
                             <p class="mt-1 text-sm">You have already created a card for this image. Each image can only be used for one card.</p>
                         </div>
                     @endif
-                    <form method="POST" action="{{ route('images.store-card') }}" class="space-y-6">
+                    <form method="POST" action="{{ route('cards.store') }}" class="space-y-6" data-ajax="true">
                     @csrf
                     <input type="hidden" name="image_url" value="{{ $image->image_url }}">
                     
@@ -371,56 +371,80 @@
                 updatePreview();
             }
             
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                
+            // Handle both AJAX and regular form submissions
+            form.addEventListener('submit', function(e) {
                 const submitButton = form.querySelector('button[type="submit"]');
                 submitButton.disabled = true;
                 submitButton.innerHTML = '<span class="inline-flex items-center"><svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Creating...</span>';
-
-                try {
-                    const response = await fetch(form.action, {
-                        method: 'POST',
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
-                        },
-                        body: new FormData(form)
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (response.ok && data.success) {
-                        // Trigger rarity reveal animation
+                
+                // If AJAX is not needed, let the form submit normally
+                if (!form.dataset.ajax) {
+                    return true;
+                }
+                
+                e.preventDefault();
+                
+                fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
+                    },
+                    body: new FormData(form)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => Promise.reject(err));
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success && data.card) {
+                        // Trigger animations
                         cardContainer.classList.add('card-container-reveal');
                         
-                        // Add flip animation
                         setTimeout(() => {
                             const raritySpan = document.querySelector('.rarity-details');
                             raritySpan.textContent = data.card.rarity;
                             raritySpan.classList.add('rarity-reveal');
                             
-                            // Add rarity-specific styling
                             const rarityClass = `rarity-${data.card.rarity.toLowerCase().replace(' ', '-')}`;
                             cardContainer.classList.add(rarityClass, 'glow-effect');
                             
-                            // Redirect after animation
                             setTimeout(() => {
-                                window.location.href = '{{ route('images.gallery') }}';
+                                window.location.href = data.redirect || '{{ route('cards.index') }}';
                             }, 2000);
                         }, 500);
                     }
-                } catch (error) {
+                })
+                .catch(error => {
                     console.error('Error:', error);
                     submitButton.disabled = false;
                     submitButton.innerHTML = 'Create Card';
                     
-                    // Show error message
-                    const errorDiv = document.createElement('div');
-                    errorDiv.className = 'mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded';
-                    errorDiv.textContent = 'An error occurred while creating the card. Please try again.';
-                    form.insertBefore(errorDiv, submitButton.parentElement);
-                }
+                    // Clear previous errors
+                    const existingErrors = form.querySelectorAll('.ajax-error');
+                    existingErrors.forEach(el => el.remove());
+                    
+                    // Display validation errors if present
+                    if (error.errors) {
+                        Object.entries(error.errors).forEach(([field, messages]) => {
+                            const input = form.querySelector(`[name="${field}"]`);
+                            if (input) {
+                                const errorDiv = document.createElement('div');
+                                errorDiv.className = 'ajax-error mt-2 text-sm text-red-600';
+                                errorDiv.textContent = messages.join(' ');
+                                input.parentElement.appendChild(errorDiv);
+                            }
+                        });
+                    } else {
+                        // Display generic error
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'ajax-error mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded';
+                        errorDiv.textContent = error.message || 'An error occurred while creating the card. Please try again.';
+                        form.insertBefore(errorDiv, submitButton.parentElement);
+                    }
+                });
             });
 
             // Initialize the form

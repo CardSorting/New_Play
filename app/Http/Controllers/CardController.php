@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Gallery;
 use Illuminate\Http\Request;
 use App\Http\Controllers\ImageController;
+use Illuminate\Support\Facades\Validator;
 
 class CardController extends Controller
 {
@@ -61,14 +62,23 @@ class CardController extends Controller
     /**
      * Show the form for creating a new card.
      */
-    public function create(Request $request)
+    public function create(Gallery $image)
     {
-        $image = Gallery::where('type', 'image')
-            ->with('user')
-            ->findOrFail($request->image_id);
+        // Ensure the image is of type 'image'
+        if ($image->type !== 'image') {
+            abort(404, 'Invalid image type');
+        }
 
-        return view('dashboard.cards.create', [
-            'image' => $image
+        // Check if a card already exists for this image
+        $cardExists = Gallery::where('type', 'card')
+            ->where('image_url', $image->image_url)
+            ->exists() ||
+            \App\Models\GlobalCard::where('image_url', $image->image_url)
+            ->exists();
+
+        return view('images.create-card', [
+            'image' => $image->load('user'),
+            'cardExists' => $cardExists
         ]);
     }
 
@@ -82,28 +92,40 @@ class CardController extends Controller
                 'request' => $request->all(),
                 'user_id' => auth()->id()
             ]);
-            
+
             // Validate all data upfront
-            try {
-                $validatedData = $request->validate([
-                    'image_id' => ['required', 'exists:galleries,id'],
-                    'name' => ['required', 'string', 'max:255'],
-                    'mana_cost' => ['required', 'string', 'max:50'],
-                    'card_type' => ['required', 'string', 'max:255'],
-                    'abilities' => ['required', 'string'],
-                    'flavor_text' => ['nullable', 'string'],
-                    'power_toughness' => ['nullable', 'string', 'max:10'],
-                    'image_url' => ['required', 'url']
-                ]);
-            } catch (\Illuminate\Validation\ValidationException $e) {
+            $validator = Validator::make($request->all(), [
+                'image_id' => ['required', 'exists:galleries,id'],
+                'name' => ['required', 'string', 'max:255'],
+                'mana_cost' => ['required', 'string', 'max:50'],
+                'card_type' => ['required', 'string', 'max:255'],
+                'abilities' => ['required', 'string'],
+                'flavor_text' => ['nullable', 'string'],
+                'power_toughness' => ['nullable', 'string', 'max:10'],
+                'image_url' => ['required', 'url']
+            ]);
+
+            if ($validator->fails()) {
                 \Log::error('Card creation validation failed', [
-                    'errors' => $e->errors(),
-                    'request_data' => $request->all()
+                    'errors' => $validator->errors()->all(),
+                    'input' => $request->except(['_token']),
+                    'user' => auth()->id(),
+                    'trace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS)
                 ]);
-                return back()
-                    ->withErrors($e->errors())
+
+                if ($request->ajax()) {
+                    return response()->json([
+                        'success' => false,
+                        'errors' => $validator->errors()
+                    ], 422);
+                }
+
+                return redirect()->back()
+                    ->withErrors($validator)
                     ->withInput();
             }
+
+            $validatedData = $validator->validated();
 
             // Get the original image
             $image = Gallery::where('id', $validatedData['image_id'])
@@ -230,25 +252,24 @@ class CardController extends Controller
             return redirect()->route('cards.index')
                 ->with('success', 'Card created successfully!')
                 ->with('last_card', $card);
-
         } catch (\Exception $e) {
-            \Log::error('Validation or pre-creation check failed', [
+            \Log::error('Card creation failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'request_data' => $request->all(),
-                'user_id' => auth()->id()
+                'input' => $request->except(['_token']),
+                'user' => auth()->id()
             ]);
 
             if ($request->ajax()) {
                 return response()->json([
                     'success' => false,
-                    'message' => $e->getMessage()
-                ], 422);
+                    'message' => 'An unexpected error occurred. Please try again.'
+                ], 500);
             }
 
             return back()
                 ->withInput()
-                ->withErrors(['error' => $e->getMessage()]);
+                ->withErrors(['error' => 'An unexpected error occurred. Please try again.']);
         }
     }
 

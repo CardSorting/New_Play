@@ -10,7 +10,7 @@ Route::middleware(['auth', 'verified'])
     ->group(function () {
         // Card listing and creation
         Route::get('/', 'index')->name('index');
-        Route::get('/create', 'create')->name('create');
+        Route::get('/create/{image}', 'create')->name('create');
         Route::post('/', 'store')->name('store');
         
         // Individual card management
