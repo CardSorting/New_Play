@@ -6,6 +6,7 @@ use App\Models\{CreditTransaction, User};
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class PulseService
 {
@@ -23,31 +24,53 @@ class PulseService
         }
     }
 
-    public function canClaimDailyPulse(User $user): bool
+    private function hasEnoughTimePassed(?string $lastClaimTime): bool
     {
-        if (!$user->last_pulse_claim) {
+        if (!$lastClaimTime) {
             return true;
         }
 
-        return Carbon::parse($user->last_pulse_claim)->addDay()->isPast();
+        $lastClaim = Carbon::parse($lastClaimTime);
+        $hoursSinceLastClaim = $lastClaim->diffInHours(now());
+        return $hoursSinceLastClaim >= 24;
+    }
+
+    public function canClaimDailyPulse(User $user): bool
+    {
+        return $this->hasEnoughTimePassed($user->last_pulse_claim);
     }
 
     public function claimDailyPulse(User $user): bool
     {
-        if (!$this->canClaimDailyPulse($user)) {
-            return false;
-        }
-
         try {
-            $user->update(['last_pulse_claim' => now()]);
+            return DB::transaction(function () use ($user) {
+                // Get current balance and lock row
+                $currentBalance = CreditTransaction::lockForUpdate()
+                    ->where('user_id', $user->id)
+                    ->latest('created_at')
+                    ->value('running_balance') ?? 0;
 
-            $this->addCredits(
-                $user,
-                self::DAILY_PULSE_AMOUNT,
-                'Daily Pulse Claim'
-            );
+                // Lock user row and check eligibility
+                $lockedUser = User::lockForUpdate()->find($user->id);
+                if (!$lockedUser || !$this->hasEnoughTimePassed($lockedUser->last_pulse_claim)) {
+                    return false;
+                }
 
-            return true;
+                // Update user's last claim time
+                $now = now();
+                $lockedUser->update(['last_pulse_claim' => $now]);
+
+                // Create credit transaction
+                CreditTransaction::create([
+                    'user_id' => $user->id,
+                    'amount' => self::DAILY_PULSE_AMOUNT,
+                    'type' => CreditTransaction::TYPE_CREDIT,
+                    'description' => 'Daily Pulse Claim',
+                    'running_balance' => $currentBalance + self::DAILY_PULSE_AMOUNT
+                ]);
+
+                return true;
+            });
         } catch (\Exception $e) {
             Log::error('Failed to claim daily pulse', [
                 'user_id' => $user->id,
@@ -137,7 +160,8 @@ class PulseService
             return null;
         }
 
-        return Carbon::parse($user->last_pulse_claim)->addDay();
+        $lastClaim = Carbon::parse($user->last_pulse_claim);
+        return $lastClaim->addHours(24);
     }
 
     public function getNextPulseClaimTimeString(User $user): ?string

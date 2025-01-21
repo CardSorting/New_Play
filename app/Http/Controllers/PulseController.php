@@ -40,22 +40,18 @@ class PulseController extends Controller
             'user_id' => $user->id
         ]);
 
-        if (!$this->pulseService->canClaimDailyPulse($user)) {
-            Log::info('Daily pulse claim rejected - too soon', [
-                'user_id' => $user->id,
-            ]);
-
-            return response()->json([
-                'error' => 'Cannot claim yet',
-                'next_claim' => $this->pulseService->getNextPulseClaimTimeString($user)
-            ], 400);
-        }
-
         try {
             $claimed = $this->pulseService->claimDailyPulse($user);
 
             if (!$claimed) {
-                throw new \RuntimeException('Failed to claim daily pulse');
+                Log::info('Daily pulse claim rejected - too soon', [
+                    'user_id' => $user->id,
+                ]);
+
+                return response()->json([
+                    'error' => 'Cannot claim yet',
+                    'next_claim' => $this->pulseService->getNextPulseClaimTimeString($user)
+                ], 400);
             }
 
             Log::info('Daily pulse claimed successfully', [
