@@ -79,6 +79,7 @@
                     @endif
                     <form method="POST" action="{{ route('cards.store') }}" class="space-y-6" data-ajax="true">
                     @csrf
+                    <input type="hidden" name="image_id" value="{{ $image->id }}">
                     <input type="hidden" name="image_url" value="{{ $image->image_url }}">
                     
                     <!-- Card Name -->
@@ -426,8 +427,11 @@
                     const existingErrors = form.querySelectorAll('.ajax-error');
                     existingErrors.forEach(el => el.remove());
                     
-                    // Display validation errors if present
+                    // Store errors in session storage
                     if (error.errors) {
+                        sessionStorage.setItem('formErrors', JSON.stringify(error.errors));
+                        
+                        // Display all validation errors
                         Object.entries(error.errors).forEach(([field, messages]) => {
                             const input = form.querySelector(`[name="${field}"]`);
                             if (input) {
@@ -435,6 +439,10 @@
                                 errorDiv.className = 'ajax-error mt-2 text-sm text-red-600';
                                 errorDiv.textContent = messages.join(' ');
                                 input.parentElement.appendChild(errorDiv);
+                                
+                                // Add error class to input
+                                input.classList.add('border-red-500');
+                                input.classList.remove('border-gray-300');
                             }
                         });
                     } else {
@@ -444,11 +452,56 @@
                         errorDiv.textContent = error.message || 'An error occurred while creating the card. Please try again.';
                         form.insertBefore(errorDiv, submitButton.parentElement);
                     }
+                    
+                    // Scroll to first error
+                    const firstError = form.querySelector('.ajax-error');
+                    if (firstError) {
+                        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    
+                    // If no errors were found but submission failed, show a generic error
+                    if (!form.querySelector('.ajax-error')) {
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'ajax-error mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded';
+                        errorDiv.textContent = 'An unexpected error occurred. Please try again.';
+                        form.insertBefore(errorDiv, submitButton.parentElement);
+                    }
                 });
             });
 
+            // Restore form state on page load
+            function restoreFormState() {
+                const storedErrors = sessionStorage.getItem('formErrors');
+                if (storedErrors) {
+                    const errors = JSON.parse(storedErrors);
+                    Object.entries(errors).forEach(([field, messages]) => {
+                        const input = form.querySelector(`[name="${field}"]`);
+                        if (input) {
+                            const errorDiv = document.createElement('div');
+                            errorDiv.className = 'ajax-error mt-2 text-sm text-red-600';
+                            errorDiv.textContent = messages.join(' ');
+                            input.parentElement.appendChild(errorDiv);
+                            
+                            // Add error class to input
+                            input.classList.add('border-red-500');
+                            input.classList.remove('border-gray-300');
+                        }
+                    });
+                    
+                    // Clear stored errors
+                    sessionStorage.removeItem('formErrors');
+                    
+                    // Scroll to first error
+                    const firstError = form.querySelector('.ajax-error');
+                    if (firstError) {
+                        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            }
+
             // Initialize the form
             initializeForm();
+            restoreFormState();
         });
     </script>
 </x-app-layout>
