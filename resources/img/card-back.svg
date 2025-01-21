@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="745" height="1040" version="1.1" viewBox="0 0 745 1040" xmlns="http://www.w3.org/2000/svg">
+ <defs>
+  <pattern id="pattern1" width="20" height="20" patternUnits="userSpaceOnUse">
+   <path d="M0 0h20v20H0z" fill="#1a1a1a"/>
+   <circle cx="10" cy="10" r="3" fill="#2a2a2a"/>
+  </pattern>
+ </defs>
+ <g>
+  <rect width="745" height="1040" fill="#2a2a2a"/>
+  <rect x="37.25" y="37.25" width="670.5" height="965.5" fill="url(#pattern1)" stroke="#3a3a3a" stroke-width="4.5"/>
+  <g fill="none" stroke="#444" stroke-width="2">
+   <path d="m372.5 148.5v743"/>
+   <path d="m186.25 520h372.5"/>
+  </g>
+  <g fill="#444">
+   <path d="m372.5 520-124.17 124.17 124.17 124.17 124.17-124.17z"/>
+   <path d="m372.5 520-62.083 62.083 62.083 62.083 62.083-62.083z"/>
+   <path d="m372.5 520-31.042 31.042 31.042 31.042 31.042-31.042z"/>
+  </g>
+  <circle cx="372.5" cy="520" r="144.17" fill="none" stroke="#444" stroke-width="2"/>
+  <circle cx="372.5" cy="520" r="72.083" fill="none" stroke="#444" stroke-width="2"/>
+ </g>
+</svg>

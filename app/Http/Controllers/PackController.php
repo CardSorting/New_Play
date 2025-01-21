@@ -15,6 +15,7 @@ class PackController extends Controller
     public function index()
     {
         $packs = Pack::where('user_id', Auth::id())
+            ->whereNull('opened_at')
             ->withCount('cards')
             ->with(['cards' => function($query) {
                 $query->inRandomOrder()->limit(1);
@@ -113,19 +114,6 @@ class PackController extends Controller
                 ->with('error', 'This pack must be sealed before it can be opened.');
         }
 
-        // Load cards for the reveal view
-        $pack->load('cards');
-        
-        return view('dashboard.packs.reveal', compact('pack'));
-    }
-
-    public function completeOpen(Pack $pack)
-    {
-        if (!$pack->is_sealed) {
-            return redirect()->route('packs.show', $pack)
-                ->with('error', 'This pack must be sealed before it can be opened.');
-        }
-
         try {
             DB::beginTransaction();
 
@@ -154,8 +142,8 @@ class PackController extends Controller
                 $card->delete();
             }
 
-            // Delete the pack
-            $pack->delete();
+            // Mark pack as opened
+            $pack->update(['opened_at' => now()]);
 
             DB::commit();
 
