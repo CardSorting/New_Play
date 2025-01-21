@@ -44,32 +44,39 @@ class PulseService
     {
         try {
             return DB::transaction(function () use ($user) {
-                // Get current balance and lock row
-                $currentBalance = CreditTransaction::lockForUpdate()
-                    ->where('user_id', $user->id)
-                    ->latest('created_at')
-                    ->value('running_balance') ?? 0;
+                $now = now();
+                $twentyFourHoursAgo = $now->copy()->subHours(24);
 
-                // Lock user row and check eligibility
-                $lockedUser = User::lockForUpdate()->find($user->id);
-                if (!$lockedUser || !$this->hasEnoughTimePassed($lockedUser->last_pulse_claim)) {
-                    return false;
+                // Attempt to update last_pulse_claim only if it's eligible
+                // This is an atomic operation that both checks and updates
+                $updated = User::where('id', $user->id)
+                    ->where(function ($query) use ($twentyFourHoursAgo) {
+                        $query->whereNull('last_pulse_claim')
+                            ->orWhere('last_pulse_claim', '<=', $twentyFourHoursAgo);
+                    })
+                    ->update(['last_pulse_claim' => $now]);
+
+                // If update was successful (affected rows > 0), proceed with credit
+                if ($updated) {
+                    // Get current balance with lock
+                    $currentBalance = CreditTransaction::lockForUpdate()
+                        ->where('user_id', $user->id)
+                        ->latest('created_at')
+                        ->value('running_balance') ?? 0;
+
+                    // Create credit transaction
+                    CreditTransaction::create([
+                        'user_id' => $user->id,
+                        'amount' => self::DAILY_PULSE_AMOUNT,
+                        'type' => CreditTransaction::TYPE_CREDIT,
+                        'description' => 'Daily Pulse Claim',
+                        'running_balance' => $currentBalance + self::DAILY_PULSE_AMOUNT
+                    ]);
+
+                    return true;
                 }
 
-                // Update user's last claim time
-                $now = now();
-                $lockedUser->update(['last_pulse_claim' => $now]);
-
-                // Create credit transaction
-                CreditTransaction::create([
-                    'user_id' => $user->id,
-                    'amount' => self::DAILY_PULSE_AMOUNT,
-                    'type' => CreditTransaction::TYPE_CREDIT,
-                    'description' => 'Daily Pulse Claim',
-                    'running_balance' => $currentBalance + self::DAILY_PULSE_AMOUNT
-                ]);
-
-                return true;
+                return false;
             });
         } catch (\Exception $e) {
             Log::error('Failed to claim daily pulse', [
