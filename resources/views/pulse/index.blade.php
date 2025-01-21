@@ -4,9 +4,14 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900" x-data="{
                     loading: false,
+                    claimed: false,
                     message: '',
                     errorMessage: '',
+                    nextClaimTime: @json($nextClaimTime),
+                    creditBalance: @json($creditBalance),
                     async claimPulse() {
+                        if (this.loading || this.claimed) return;
+                        
                         this.loading = true;
                         this.message = '';
                         this.errorMessage = '';
@@ -23,9 +28,17 @@
                             const data = await response.json();
                             
                             if (response.ok) {
+                                this.claimed = true;
                                 this.message = 'Successfully claimed daily pulse!';
-                                // Refresh the page after 1.5 seconds to update the UI
-                                setTimeout(() => window.location.reload(), 1500);
+                                this.creditBalance = data.new_balance;
+                                
+                                // Set next claim time to 24 hours from now
+                                const nextDate = new Date();
+                                nextDate.setHours(nextDate.getHours() + 24);
+                                this.nextClaimTime = nextDate.toISOString().slice(0, 19).replace('T', ' ');
+                                
+                                // Refresh the page after 2 seconds to ensure server state is synced
+                                setTimeout(() => window.location.reload(), 2000);
                             } else {
                                 this.errorMessage = data.error || 'Failed to claim pulse';
                             }
@@ -47,7 +60,7 @@
                         @if($canClaim)
                             <button
                                 @click="claimPulse"
-                                :disabled="loading"
+                                :disabled="loading || claimed"
                                 class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <span x-show="loading" class="inline-block mr-2">
@@ -65,8 +78,14 @@
                             </div>
                         @endif
 
-                        <!-- Messages -->
+                        <!-- Status and Messages -->
                         <div class="mt-4">
+                            <template x-if="claimed">
+                                <div class="p-4 bg-gray-50 rounded-lg">
+                                    <p class="text-gray-600">Next claim available at:</p>
+                                    <p class="text-lg font-medium" x-text="nextClaimTime"></p>
+                                </div>
+                            </template>
                             <p x-show="message" x-text="message" class="text-green-600"></p>
                             <p x-show="errorMessage" x-text="errorMessage" class="text-red-600"></p>
                         </div>
