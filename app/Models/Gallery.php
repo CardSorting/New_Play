@@ -59,15 +59,42 @@ class Gallery extends Model
 
     public function addToPack(Pack $pack): bool
     {
-        if ($this->is_in_pack || $this->pack_id) {
+        try {
+            if ($this->is_in_pack || $this->pack_id) {
+                throw new \Exception('Card is already in a pack');
+            }
+
+            if (empty($this->metadata) || !isset($this->metadata['rarity'])) {
+                throw new \Exception('Card metadata is incomplete');
+            }
+
+            $result = $this->update([
+                'pack_id' => $pack->id,
+                'is_in_pack' => true,
+                'original_owner_id' => $this->user_id
+            ]);
+
+            if (!$result) {
+                throw new \Exception('Failed to update card with pack information');
+            }
+
+            logger()->info('Card added to pack', [
+                'card_id' => $this->id,
+                'pack_id' => $pack->id,
+                'user_id' => $this->user_id,
+                'rarity' => $this->metadata['rarity']
+            ]);
+
+            return true;
+        } catch (\Exception $e) {
+            logger()->error('Failed to add card to pack', [
+                'error' => $e->getMessage(),
+                'card_id' => $this->id,
+                'pack_id' => $pack->id,
+                'user_id' => $this->user_id
+            ]);
             return false;
         }
-
-        return $this->update([
-            'pack_id' => $pack->id,
-            'is_in_pack' => true,
-            'original_owner_id' => $this->user_id
-        ]);
     }
 
     public function removeFromPack(): bool

@@ -14,7 +14,6 @@ class PackController extends Controller
     {
         $packs = Pack::where('user_id', Auth::id())
             ->whereNull('opened_at')
-            ->where('is_sealed', true)  // Only show sealed packs
             ->withCount(['cards' => function($query) {
                 $query->where('is_in_pack', true);
             }])
@@ -35,22 +34,52 @@ class PackController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string|max:1000',
-            'card_limit' => 'required|integer|min:1|max:100'
-        ]);
+        try {
+            DB::beginTransaction();
+            
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'description' => 'nullable|string|max:1000',
+                'card_limit' => 'required|integer|min:1|max:100'
+            ]);
 
-        $pack = Pack::create([
-            'user_id' => Auth::id(),
-            'name' => $validated['name'],
-            'description' => $validated['description'],
-            'card_limit' => $validated['card_limit'],
-            'is_sealed' => false
-        ]);
+            $pack = Pack::create([
+                'user_id' => Auth::id(),
+                'name' => $validated['name'],
+                'description' => $validated['description'],
+                'card_limit' => $validated['card_limit'],
+                'is_sealed' => false
+            ]);
 
-        return redirect()->route('packs.index')
-            ->with('success', 'Pack created successfully');
+            DB::commit();
+
+            logger()->info('Pack created successfully', [
+                'pack_id' => $pack->id,
+                'user_id' => Auth::id(),
+                'card_limit' => $validated['card_limit']
+            ]);
+
+            return redirect()->route('packs.index')
+                ->with('success', 'Pack created successfully');
+                
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            logger()->error('Pack creation validation failed', [
+                'errors' => $e->errors(),
+                'input' => $request->all(),
+                'user_id' => Auth::id()
+            ]);
+            throw $e;
+        } catch (\Exception $e) {
+            DB::rollBack();
+            logger()->error('Pack creation failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'input' => $request->all(),
+                'user_id' => Auth::id()
+            ]);
+            return back()->withInput()->with('error', 'Failed to create pack: ' . $e->getMessage());
+        }
     }
 
     public function show(Pack $pack)
@@ -77,17 +106,17 @@ class PackController extends Controller
 
     public function addCard(Request $request, Pack $pack)
     {
-        $this->authorize('update', $pack);
-
-        $validated = $request->validate([
-            'card_id' => 'required|exists:galleries,id'
-        ]);
-
-        if ($pack->is_sealed) {
-            return back()->with('error', 'Cannot modify a sealed pack');
-        }
-
         try {
+            $this->authorize('update', $pack);
+
+            $validated = $request->validate([
+                'card_id' => 'required|exists:galleries,id'
+            ]);
+
+            if ($pack->is_sealed) {
+                throw new \Exception('Cannot modify a sealed pack');
+            }
+
             DB::beginTransaction();
 
             $card = Gallery::findOrFail($validated['card_id']);
@@ -100,10 +129,32 @@ class PackController extends Controller
 
             DB::commit();
 
+            logger()->info('Card added to pack successfully', [
+                'pack_id' => $pack->id,
+                'card_id' => $card->id,
+                'user_id' => Auth::id()
+            ]);
+
             return back()->with('success', $result['message']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            logger()->error('Card addition validation failed', [
+                'errors' => $e->errors(),
+                'input' => $request->all(),
+                'pack_id' => $pack->id,
+                'user_id' => Auth::id()
+            ]);
+            throw $e;
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', $e->getMessage());
+            logger()->error('Failed to add card to pack', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'pack_id' => $pack->id,
+                'card_id' => $validated['card_id'] ?? null,
+                'user_id' => Auth::id()
+            ]);
+            return back()->with('error', 'Failed to add card: ' . $e->getMessage());
         }
     }
 

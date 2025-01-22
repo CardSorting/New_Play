@@ -178,40 +178,62 @@ class Pack extends Model
 
     public function addCard(Gallery $card): array
     {
-        if ($this->is_sealed) {
+        try {
+            if ($this->is_sealed) {
+                throw new \Exception('Cannot add cards to a sealed pack.');
+            }
+
+            if ($this->cards()->count() >= $this->card_limit) {
+                throw new \Exception('Pack has reached its card limit.');
+            }
+
+            if (!$this->isValidCardType($card)) {
+                throw new \Exception('Invalid card type for pack.');
+            }
+
+            if ($card->user_id !== $this->user_id) {
+                throw new \Exception('You must own the card to add it to a pack.');
+            }
+
+            if (empty($card->metadata) || !isset($card->metadata['rarity'])) {
+                throw new \Exception('Card metadata is incomplete - missing rarity information.');
+            }
+
+            DB::beginTransaction();
+
+            $result = $card->addToPack($this);
+            
+            if (!$result) {
+                throw new \Exception('Failed to add card to pack.');
+            }
+
+            DB::commit();
+
+            logger()->info('Card added to pack successfully', [
+                'pack_id' => $this->id,
+                'card_id' => $card->id,
+                'user_id' => $this->user_id,
+                'rarity' => $card->metadata['rarity'] ?? null
+            ]);
+
+            return [
+                'success' => true,
+                'message' => 'Card added to pack successfully.'
+            ];
+        } catch (\Exception $e) {
+            DB::rollBack();
+            logger()->error('Failed to add card to pack', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'pack_id' => $this->id,
+                'card_id' => $card->id,
+                'user_id' => $this->user_id
+            ]);
             return [
                 'success' => false,
-                'message' => 'Cannot add cards to a sealed pack.'
+                'message' => 'Failed to add card: ' . $e->getMessage()
             ];
         }
-
-        if ($this->cards()->count() >= $this->card_limit) {
-            return [
-                'success' => false,
-                'message' => 'Pack has reached its card limit.'
-            ];
-        }
-
-        if (!$this->isValidCardType($card)) {
-            return [
-                'success' => false,
-                'message' => 'Invalid card type for pack.'
-            ];
-        }
-
-        if ($card->user_id !== $this->user_id) {
-            return [
-                'success' => false,
-                'message' => 'You must own the card to add it to a pack.'
-            ];
-        }
-
-        $result = $card->addToPack($this);
-        
-        return [
-            'success' => $result,
-            'message' => $result ? 'Card added to pack successfully.' : 'Failed to add card to pack.'
-        ];
     }
 
     public function removeCard(Gallery $card): bool

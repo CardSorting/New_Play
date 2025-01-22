@@ -30,7 +30,7 @@
                                         <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">{{ $pack->description }}</p>
                                     @endif
 
-                                    @if($pack->is_sealed && $pack->cards->isNotEmpty())
+                                    @if($pack->cards->isNotEmpty())
                                         <div class="mb-4">
                                             <div class="pack-card relative aspect-[7/5] rounded-lg overflow-hidden group cursor-pointer">
                                                 <!-- Preview card -->
@@ -85,6 +85,14 @@
                                         <span>{{ $pack->cards_count }} / {{ $pack->card_limit }} cards</span>
                                         @if(!$pack->is_sealed)
                                             <div class="flex items-center gap-4">
+                                                @if($pack->cards_count >= $pack->card_limit)
+                                                    <form method="POST" action="{{ route('packs.seal', $pack) }}" onsubmit="return confirm('Are you sure you want to seal this pack? This cannot be undone.')">
+                                                        @csrf
+                                                        <button type="submit" class="text-green-500 hover:text-green-700">
+                                                            Seal Pack
+                                                        </button>
+                                                    </form>
+                                                @endif
                                                 <a href="{{ route('packs.show', $pack) }}" class="text-blue-500 hover:text-blue-700">
                                                     View Details →
                                                 </a>
