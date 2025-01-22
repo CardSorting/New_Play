@@ -102,10 +102,32 @@ class Pack extends Model
                $this->cards()->count() >= $this->card_limit;
     }
 
-    public function seal(): bool
+    public function seal(): array
     {
-        if ($this->is_sealed || $this->cards()->count() < $this->card_limit) {
-            return false;
+        if ($this->is_sealed) {
+            logger()->warning('Attempted to seal already sealed pack', [
+                'pack_id' => $this->id,
+                'user_id' => $this->user_id,
+                'sealed_at' => $this->sealed_at
+            ]);
+            return [
+                'success' => false,
+                'message' => 'Pack is already sealed.'
+            ];
+        }
+
+        $cardCount = $this->cards()->count();
+        if ($cardCount < $this->card_limit) {
+            logger()->warning('Attempted to seal incomplete pack', [
+                'pack_id' => $this->id,
+                'user_id' => $this->user_id,
+                'card_count' => $cardCount,
+                'card_limit' => $this->card_limit
+            ]);
+            return [
+                'success' => false,
+                'message' => "Pack must have {$this->card_limit} cards before sealing (currently has {$cardCount})."
+            ];
         }
 
         $this->update([
@@ -113,7 +135,16 @@ class Pack extends Model
             'sealed_at' => now()
         ]);
 
-        return true;
+        logger()->info('Pack sealed successfully', [
+            'pack_id' => $this->id,
+            'user_id' => $this->user_id,
+            'card_count' => $cardCount
+        ]);
+
+        return [
+            'success' => true,
+            'message' => 'Pack sealed successfully.'
+        ];
     }
 
     public function list(int $price): array

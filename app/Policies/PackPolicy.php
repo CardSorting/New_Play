@@ -93,4 +93,20 @@ class PackPolicy
     {
         return $user->id === $pack->user_id && !$pack->is_sealed;
     }
+
+    /**
+     * Determine whether the user can seal the pack.
+     */
+    public function seal(User $user, Pack $pack): bool
+    {
+        return $user->id === $pack->user_id && !$pack->is_sealed;
+    }
+
+    /**
+     * Determine whether the user can open the pack.
+     */
+    public function open(User $user, Pack $pack): bool
+    {
+        return $user->id === $pack->user_id && $pack->is_sealed;
+    }
 }

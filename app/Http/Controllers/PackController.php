@@ -160,9 +160,31 @@ class PackController extends Controller
 
     public function open(Pack $pack)
     {
+        $this->authorize('open', $pack);
+
+        // Validate pack state
         if (!$pack->is_sealed) {
+            logger()->warning('Attempted to open unsealed pack', [
+                'pack_id' => $pack->id,
+                'user_id' => auth()->id(),
+                'pack_state' => [
+                    'is_sealed' => $pack->is_sealed,
+                    'opened_at' => $pack->opened_at
+                ]
+            ]);
             return redirect()->route('packs.index')
-                ->with('error', 'This pack must be sealed before it can be opened.');
+                ->with('error', 'Pack must be sealed before opening.');
+        }
+
+        // Check if pack has already been opened
+        if ($pack->opened_at !== null) {
+            logger()->warning('Attempted to open already opened pack', [
+                'pack_id' => $pack->id,
+                'user_id' => auth()->id(),
+                'opened_at' => $pack->opened_at
+            ]);
+            return redirect()->route('packs.index')
+                ->with('error', 'This pack has already been opened.');
         }
 
         try {
@@ -221,17 +243,27 @@ class PackController extends Controller
 
     public function seal(Pack $pack)
     {
-        $this->authorize('update', $pack);
+        $this->authorize('seal', $pack);
 
-        if ($pack->cards()->count() < $pack->card_limit) {
-            return back()->with('error', 'Pack must be full before sealing');
+        $result = $pack->seal();
+        
+        if (!$result['success']) {
+            logger()->warning('Pack sealing failed', [
+                'pack_id' => $pack->id,
+                'user_id' => auth()->id(),
+                'message' => $result['message']
+            ]);
+        } else {
+            logger()->info('Pack sealed successfully', [
+                'pack_id' => $pack->id,
+                'user_id' => auth()->id()
+            ]);
         }
-
-        if (!$pack->seal()) {
-            return back()->with('error', 'Unable to seal pack. Please ensure it is not already sealed and has enough cards.');
-        }
-
-        return back()->with('success', 'Pack has been sealed and can now be listed on the marketplace');
+        
+        return back()->with(
+            $result['success'] ? 'success' : 'error',
+            $result['message']
+        );
     }
 
     public function destroy(Pack $pack)
