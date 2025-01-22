@@ -49,7 +49,8 @@ class CardController extends Controller
         }
 
         // Get new cards from session if redirected from pack opening
-        $newCards = session()->get('new_cards', []);
+        // Ensure $newCards is always an array even if session returns a Collection
+        $newCards = collect(session()->get('new_cards', []))->toArray();
         
         return view('dashboard.cards.index', [
             'cards' => $cards,
