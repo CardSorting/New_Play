@@ -47,6 +47,7 @@
                             >
                                 <option value="1:1">Square (1:1)</option>
                                 <option value="16:9">Landscape (16:9)</option>
+                                <option value="9:16">Portrait (9:16)</option>
                                 <option value="4:3">Standard (4:3)</option>
                             </select>
                         </div>

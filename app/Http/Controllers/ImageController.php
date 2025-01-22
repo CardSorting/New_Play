@@ -168,7 +168,7 @@ class ImageController extends Controller
 
         $request->validate([
             'prompt' => 'required|string|max:1000',
-            'aspect_ratio' => 'nullable|string|in:1:1,16:9,9:16,4:3',
+            'aspect_ratio' => 'nullable|string|in:1:1,16:9,9:16,4:3,',
             'process_mode' => 'nullable|string|in:relax,fast,turbo'
         ]);
 
