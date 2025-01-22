@@ -9,6 +9,13 @@
                     errorMessage: '',
                     nextClaimTime: @json($nextClaimTime),
                     creditBalance: @json($creditBalance),
+                    init() {
+                        // Initialize reactive properties
+                        this.loading = false;
+                        this.claimed = false;
+                        this.message = '';
+                        this.errorMessage = '';
+                    },
                     async claimPulse() {
                         if (this.loading || this.claimed) return;
                         
