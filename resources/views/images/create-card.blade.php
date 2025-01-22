@@ -77,6 +77,32 @@
                             <p class="mt-1 text-sm">You have already created a card for this image. Each image can only be used for one card.</p>
                         </div>
                     @endif
+
+                    @if ($errors->any())
+                        <div class="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                            <p class="font-medium">Validation Errors</p>
+                            <ul class="mt-1 text-sm">
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                            @if(session('failed_rules'))
+                                <div class="mt-2">
+                                    <p class="font-medium">Failed Validation Rules:</p>
+                                    <ul class="text-xs">
+                                        @foreach(session('failed_rules') as $field => $rules)
+                                            <li>
+                                                <strong>{{ $field }}:</strong>
+                                                @foreach($rules as $rule => $params)
+                                                    {{ $rule }}@if($params), {{ json_encode($params) }}@endif
+                                                @endforeach
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            @endif
+                        </div>
+                    @endif
                     <form method="POST" action="{{ route('cards.store') }}" class="space-y-6" data-ajax="true">
                     @csrf
                     <input type="hidden" name="image_id" value="{{ $image->id }}">

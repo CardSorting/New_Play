@@ -91,25 +91,37 @@ class CardController extends Controller
                 'user_id' => auth()->id()
             ]);
 
-            // Validate all data upfront
+            // Validate all data upfront with more specific rules
             $validator = Validator::make($request->all(), [
-                'image_id' => ['required', 'exists:galleries,id'],
+                'image_id' => ['required', 'exists:galleries,id,type,image'],
                 'name' => ['required', 'string', 'max:255'],
-                'mana_cost' => ['required', 'string', 'max:50'],
+                'mana_cost' => ['required', 'string', 'max:50', 'regex:/^[WUBRG\d\/]+$/'],
                 'card_type' => ['required', 'string', 'max:255'],
                 'abilities' => ['required', 'string'],
                 'flavor_text' => ['nullable', 'string'],
-                'power_toughness' => ['nullable', 'string', 'max:10'],
-                'image_url' => ['required', 'url']
+                'power_toughness' => ['nullable', 'string', 'max:10', 'regex:/^\d+\/\d+$/'],
+                'image_url' => ['required', 'url', 'active_url']
+            ], [
+                'image_id.exists' => 'The selected image is invalid or not found',
+                'mana_cost.regex' => 'Mana cost must contain only valid mana symbols (W,U,B,R,G) and numbers',
+                'power_toughness.regex' => 'Power/Toughness must be in format X/X where X are numbers',
+                'image_url.active_url' => 'The image URL must be a valid, accessible URL'
             ]);
 
             if ($validator->fails()) {
+                $errors = $validator->errors()->all();
                 \Log::error('Card creation validation failed', [
-                    'errors' => $validator->errors()->all(),
+                    'errors' => $errors,
                     'input' => $request->except(['_token']),
                     'user' => auth()->id(),
-                    'trace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS)
+                    'trace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS),
+                    'validation_rules' => $validator->getRules(),
+                    'failed_rules' => $validator->failed()
                 ]);
+                
+                // Add detailed error messages to session
+                $request->session()->flash('validation_errors', $errors);
+                $request->session()->flash('failed_rules', $validator->failed());
 
                 if ($request->ajax()) {
                     return response()->json([
