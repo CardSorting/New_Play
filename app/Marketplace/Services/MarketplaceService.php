@@ -42,8 +42,7 @@ class MarketplaceService
 
     public function getSoldPacks(User $user)
     {
-        return Pack::where('user_id', '!=', $user->id)
-            ->whereIn('id', function($query) use ($user) {
+        return Pack::whereIn('id', function($query) use ($user) {
                 $query->select('pack_id')
                     ->from('credit_transactions')
                     ->where('user_id', $user->id)
@@ -57,10 +56,9 @@ class MarketplaceService
     public function getPurchasedPacks(User $user)
     {
         return Pack::where('user_id', $user->id)
-            ->whereIn('id', function($query) use ($user) {
+            ->whereIn('id', function($query) {
                 $query->select('pack_id')
                     ->from('credit_transactions')
-                    ->where('user_id', $user->id)
                     ->where('description', 'like', 'Purchase pack #%');
             })
             ->withCount('cards')
