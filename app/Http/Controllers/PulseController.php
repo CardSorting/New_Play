@@ -2,37 +2,32 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\User;
-use App\Services\PulseService;
+use App\Services\Credits\DailyPulseService;
+use Illuminate\Http\{JsonResponse, Request};
 use Illuminate\Support\Facades\Log;
-use Carbon\Carbon;
 
 class PulseController extends Controller
 {
-    private PulseService $pulseService;
-
-    public function __construct(PulseService $pulseService)
-    {
-        $this->pulseService = $pulseService;
+    public function __construct(
+        private readonly DailyPulseService $pulseService
+    ) {
         $this->middleware('auth');
     }
 
     public function index()
     {
         $user = auth()->user();
-        $canClaim = $this->pulseService->canClaimDailyPulse($user);
-        $nextClaimTime = $this->pulseService->getNextPulseClaimTimeString($user);
+        $pulseData = $this->pulseService->getPulseClaimData($user);
 
         return view('pulse.index', [
-            'amount' => 500,
-            'canClaim' => $canClaim,
-            'nextClaimTime' => $nextClaimTime,
+            'amount' => $pulseData->amount,
+            'canClaim' => $pulseData->canClaim,
+            'nextClaimTime' => $pulseData->getNextClaimTimeString(),
             'creditBalance' => $this->pulseService->getCreditBalance($user)
         ]);
     }
 
-    public function claim()
+    public function claim(): JsonResponse
     {
         $user = auth()->user();
         
@@ -41,22 +36,16 @@ class PulseController extends Controller
         ]);
 
         try {
-            $claimed = $this->pulseService->claimDailyPulse($user);
+            $claimed = $this->pulseService->claim($user);
 
             if (!$claimed) {
-                Log::info('Daily pulse claim rejected - too soon', [
-                    'user_id' => $user->id,
-                ]);
-
+                $pulseData = $this->pulseService->getPulseClaimData($user);
+                
                 return response()->json([
                     'error' => 'Cannot claim yet',
-                    'next_claim' => $this->pulseService->getNextPulseClaimTimeString($user)
+                    'next_claim' => $pulseData->getNextClaimTimeString()
                 ], 400);
             }
-
-            Log::info('Daily pulse claimed successfully', [
-                'user_id' => $user->id
-            ]);
 
             return response()->json([
                 'status' => 'success',
@@ -76,13 +65,14 @@ class PulseController extends Controller
         }
     }
 
-    public function checkStatus()
+    public function checkStatus(): JsonResponse
     {
         $user = auth()->user();
+        $pulseData = $this->pulseService->getPulseClaimData($user);
         
         return response()->json([
-            'can_claim' => $this->pulseService->canClaimDailyPulse($user),
-            'next_claim' => $this->pulseService->getNextPulseClaimTimeString($user),
+            'can_claim' => $pulseData->canClaim,
+            'next_claim' => $pulseData->getNextClaimTimeString(),
             'credit_balance' => $this->pulseService->getCreditBalance($user)
         ]);
     }

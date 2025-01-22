@@ -27,6 +27,7 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'last_pulse_claim' => 'datetime',
     ];
 
     public function galleries(): HasMany
