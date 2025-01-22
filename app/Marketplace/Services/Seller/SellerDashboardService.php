@@ -40,7 +40,7 @@ class SellerDashboardService
             ->where('is_sealed', true)
             ->where('is_listed', false)
             ->whereNotNull('sealed_at')
-            ->whereRaw('(SELECT COUNT(*) FROM global_cards WHERE pack_id = packs.id) >= packs.card_limit')
+            ->whereRaw('(SELECT COUNT(*) FROM galleries WHERE pack_id = packs.id AND is_in_pack = true) >= packs.card_limit')
             ->withCount('cards')
             ->with(['cards' => function($query) {
                 $query->inRandomOrder()->limit(1);

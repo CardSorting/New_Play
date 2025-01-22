@@ -14,9 +14,14 @@ class PackController extends Controller
     {
         $packs = Pack::where('user_id', Auth::id())
             ->whereNull('opened_at')
-            ->withCount('cards')
+            ->where('is_sealed', true)  // Only show sealed packs
+            ->withCount(['cards' => function($query) {
+                $query->where('is_in_pack', true);
+            }])
             ->with(['cards' => function($query) {
-                $query->inRandomOrder()->limit(1);
+                $query->where('is_in_pack', true)
+                      ->inRandomOrder()
+                      ->limit(1);
             }])
             ->get();
             
@@ -135,8 +140,11 @@ class PackController extends Controller
                 ]);
             }
 
-            // Mark pack as opened
-            if (!$pack->update(['opened_at' => $now])) {
+            // Mark pack as opened and unsealed
+            if (!$pack->update([
+                'opened_at' => $now,
+                'is_sealed' => false
+            ])) {
                 throw new \Exception('Failed to mark pack as opened.');
             }
 

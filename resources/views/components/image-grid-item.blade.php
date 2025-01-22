@@ -20,8 +20,6 @@
         @php
             $hasCard = \App\Models\Gallery::where('type', 'card')
                 ->where('image_url', $image->image_url)
-                ->exists() || 
-            \App\Models\GlobalCard::where('image_url', $image->image_url)
                 ->exists();
         @endphp
         @if($hasCard)
