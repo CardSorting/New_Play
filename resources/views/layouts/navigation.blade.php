@@ -80,10 +80,6 @@
                                        class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 {{ request()->routeIs('marketplace.seller.*') ? 'bg-gray-100' : '' }}">
                                         Seller Dashboard
                                     </a>
-                                    <a href="{{ route('marketplace.purchase.history') }}" 
-                                       class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 {{ request()->routeIs('marketplace.purchase.*') ? 'bg-gray-100' : '' }}">
-                                        Purchase History
-                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -227,13 +223,6 @@
                     {{ __('Seller Dashboard') }}
                 </x-responsive-nav-link>
 
-                <x-responsive-nav-link :href="route('marketplace.purchase.history')" :active="request()->routeIs('marketplace.purchase.*')"
-                    class="flex items-center px-4 py-2 border-l-4 transition-colors">
-                    <svg class="w-5 h-5 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                    {{ __('Purchase History') }}
-                </x-responsive-nav-link>
             </div>
 
             @if($showPulseButton)
