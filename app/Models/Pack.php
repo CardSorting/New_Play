@@ -48,6 +48,11 @@ class Pack extends Model
         return $this->hasMany(CreditTransaction::class);
     }
 
+    public function purchases(): HasMany
+    {
+        return $this->hasMany(PurchaseHistory::class);
+    }
+
     // Marketplace Scopes
     public function scopeAvailableOnMarketplace(Builder $query): Builder
     {
