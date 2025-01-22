@@ -3,8 +3,7 @@
 use App\Http\Controllers\PackController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'verified'])
-    ->prefix('packs')
+Route::prefix('packs')
     ->name('packs.')
     ->controller(PackController::class)
     ->group(function () {
@@ -13,16 +12,12 @@ Route::middleware(['auth', 'verified'])
         Route::get('/create', 'create')->name('create');
         Route::post('/', 'store')->name('store');
         
-        // Individual pack management
-        Route::prefix('{pack}')->group(function () {
+        // Individual pack operations with model binding
+        Route::group(['prefix' => '/{pack}', 'where' => ['pack' => '[0-9]+']], function () {
             Route::get('/', 'show')->name('show');
-            Route::post('/open', 'open')->name('open')->middleware('can:view,pack');
+            Route::post('/open', 'open')->name('open')->middleware('can:open,pack');
             Route::delete('/', 'destroy')->name('destroy')->middleware('can:delete,pack');
-            
-            // Pack building (requires pack to not be sealed)
-            Route::middleware('can:update,pack')->group(function () {
-                Route::post('/add-card', 'addCard')->name('add-card');
-                Route::post('/seal', 'seal')->name('seal');
-            });
+            Route::post('/seal', 'seal')->name('seal')->middleware('can:seal,pack');
+            Route::post('/add-card', 'addCard')->name('add-card')->middleware('can:update,pack');
         });
     });

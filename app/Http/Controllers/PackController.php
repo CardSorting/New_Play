@@ -160,11 +160,23 @@ class PackController extends Controller
 
     public function open(Pack $pack)
     {
-        $this->authorize('open', $pack);
+        try {
+            $pack = Pack::where('id', $pack->id)
+                ->where('is_sealed', true)
+                ->firstOrFail();
 
-        // Validate pack state
+            $this->authorize('open', $pack);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            logger()->warning('Attempted to open non-existent or unsealed pack', [
+                'pack_id' => $pack->id,
+                'user_id' => auth()->id()
+            ]);
+            return redirect()->route('packs.index')
+                ->with('error', 'Pack not found or is not in a sealed state.');
+        }
+            
         if (!$pack->is_sealed) {
-            logger()->warning('Attempted to open unsealed pack', [
+            logger()->warning('Pack state validation failed', [
                 'pack_id' => $pack->id,
                 'user_id' => auth()->id(),
                 'pack_state' => [

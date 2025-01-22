@@ -18,11 +18,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/{cardId}', [CardController::class, 'show'])->name('cards.show');
     });
 
-    Route::prefix('/packs')->group(function () {
-        Route::get('/', [PackController::class, 'index'])->name('packs.index');
-        Route::post('/{packId}/open', [PackController::class, 'open'])->name('packs.open');
-    });
-
     Route::prefix('/pulse')->group(function () {
         Route::get('/', [PulseController::class, 'index'])->name('pulse.index');
         Route::post('/claim', [PulseController::class, 'claim'])->name('pulse.claim');

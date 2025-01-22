@@ -64,7 +64,7 @@
                                                         <div class="text-gold/70 text-xs font-medium uppercase tracking-widest mb-4">
                                                             Premium Collection
                                                         </div>
-                                                        <form method="POST" action="{{ route('packs.open', ['pack' => $pack->id]) }}" onsubmit="return confirm('Are you sure you want to open this pack?')">
+                                                        <form method="POST" action="{{ route('packs.open', $pack) }}" onsubmit="return confirm('Are you sure you want to open this pack?')">
                                                             @csrf
                                                             <button type="submit" class="inline-block px-6 py-2 bg-gold/20 hover:bg-gold/30 text-gold border border-gold/50 rounded-md transition-colors duration-200 text-sm font-medium uppercase tracking-wider">
                                                                 Open Pack
@@ -86,7 +86,7 @@
                                         @if(!$pack->is_sealed)
                                             <div class="flex items-center gap-4">
                                                 @if($pack->cards_count >= $pack->card_limit)
-                                                    <form method="POST" action="{{ route('packs.seal', $pack) }}" onsubmit="return confirm('Are you sure you want to seal this pack? This cannot be undone.')">
+                                                    <form method="POST" action="{{ route('packs.seal', $pack) }}" data-turbo="false" onsubmit="return confirm('Are you sure you want to seal this pack? This cannot be undone.')">
                                                         @csrf
                                                         <button type="submit" class="text-green-500 hover:text-green-700">
                                                             Seal Pack
