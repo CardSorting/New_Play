@@ -2,6 +2,7 @@
 
 namespace App\Marketplace\Services\Seller;
 
+use App\Contracts\Marketplace\SalesHistoryRepositoryInterface;
 use App\Models\Pack;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -22,16 +23,8 @@ class SellerDashboardService
 
     public function getSoldPacks(User $user)
     {
-        return Pack::where('user_id', '!=', $user->id)
-            ->whereIn('id', function($query) use ($user) {
-                $query->select('pack_id')
-                    ->from('credit_transactions')
-                    ->where('user_id', $user->id)
-                    ->where('description', 'like', 'Sold pack #%');
-            })
-            ->with('user')
-            ->latest()
-            ->get();
+        return app(SalesHistoryRepositoryInterface::class)
+            ->getSoldPacksForUser($user->id);
     }
 
     public function getAvailablePacks(User $user)
@@ -63,19 +56,13 @@ class SellerDashboardService
 
     public function getTotalSales(User $user): int
     {
-        return DB::table('credit_transactions')
-            ->where('user_id', $user->id)
-            ->where('description', 'like', 'Sold pack #%')
-            ->sum('amount');
+        return app(SalesHistoryRepositoryInterface::class)
+            ->getTotalSalesForUser($user->id);
     }
 
     public function getRecentSales(User $user, int $limit = 5)
     {
-        return DB::table('credit_transactions')
-            ->where('user_id', $user->id)
-            ->where('description', 'like', 'Sold pack #%')
-            ->orderBy('created_at', 'desc')
-            ->limit($limit)
-            ->get();
+        return app(SalesHistoryRepositoryInterface::class)
+            ->getRecentSalesForUser($user->id, $limit);
     }
 }

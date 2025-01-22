@@ -23,7 +23,7 @@ class MarketplaceServiceProvider extends ServiceProvider
         $this->app->bind(MarketplaceServiceInterface::class, MarketplaceService::class);
         $this->app->bind(
             SalesHistoryRepositoryInterface::class,
-            SalesHistoryRepository::class
+            \App\Repositories\Marketplace\SalesHistoryRepository::class
         );
         $this->app->bind(
             PurchaseHistoryRepositoryInterface::class,
