@@ -4,6 +4,8 @@ namespace App\Marketplace\Services;
 
 use App\Contracts\Marketplace\MarketplaceServiceInterface;
 use App\Contracts\Marketplace\PackRepositoryInterface;
+use App\Contracts\Marketplace\PurchaseHistoryRepositoryInterface;
+use App\Contracts\Marketplace\SalesHistoryRepositoryInterface;
 use App\DTOs\Marketplace\PackTransactionDTO;
 use App\Exceptions\InsufficientCreditsException;
 use App\Models\Pack;
@@ -17,7 +19,9 @@ class MarketplaceService implements MarketplaceServiceInterface
 {
     public function __construct(
         private readonly PackRepositoryInterface $packRepository,
-        private readonly PulseService $pulseService
+        private readonly PulseService $pulseService,
+        private readonly SalesHistoryRepositoryInterface $salesHistoryRepository,
+        private readonly PurchaseHistoryRepositoryInterface $purchaseHistoryRepository
     ) {}
 
     public function getAvailablePacks(): Collection
@@ -107,6 +111,23 @@ class MarketplaceService implements MarketplaceServiceInterface
 
             // Transfer ownership
             $this->packRepository->updatePackOwnership($pack, $buyer);
+
+            // Record sales history
+            $this->salesHistoryRepository->create([
+                'pack_id' => $pack->id,
+                'seller_id' => $pack->user_id,
+                'buyer_id' => $buyer->id,
+                'price' => $pack->price,
+                'sold_at' => now()
+            ]);
+
+            // Record purchase history
+            $this->purchaseHistoryRepository->create([
+                'pack_id' => $pack->id,
+                'buyer_id' => $buyer->id,
+                'price' => $pack->price,
+                'purchased_at' => now()
+            ]);
 
             DB::commit();
 
