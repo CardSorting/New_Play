@@ -16,13 +16,9 @@ class CardController extends Controller
     {
         \Validator::extend('unique_card', function ($attribute, $value, $parameters, $validator) {
             $data = $validator->getData();
-            return !(
-                Gallery::where('type', 'card')
-                    ->where('image_url', $data['image_url'])
-                    ->exists() ||
-                \App\Models\GlobalCard::where('image_url', $data['image_url'])
-                    ->exists()
-            );
+            return !Gallery::where('type', 'card')
+                ->where('image_url', $data['image_url'])
+                ->exists();
         }, 'You have already created a card for this image.');
     }
 
@@ -76,8 +72,6 @@ class CardController extends Controller
         // Check if a card already exists for this image
         $cardExists = Gallery::where('type', 'card')
             ->where('image_url', $image->image_url)
-            ->exists() ||
-            \App\Models\GlobalCard::where('image_url', $image->image_url)
             ->exists();
 
         return view('images.create-card', [
@@ -146,21 +140,17 @@ class CardController extends Controller
                     ->withErrors(['error' => 'Invalid image selected.']);
             }
 
-            // Check if a card already exists for this image in either Gallery or GlobalCard
-            $existingGalleryCard = Gallery::where('type', 'card')
+            // Check if a card already exists for this image
+            $existingCard = Gallery::where('type', 'card')
                 ->where('image_url', $image->image_url)
                 ->first();
-            
-            $existingGlobalCard = \App\Models\GlobalCard::where('image_url', $image->image_url)
-                ->first();
                 
-            if ($existingGalleryCard || $existingGlobalCard) {
-                $existingCard = $existingGalleryCard ?? $existingGlobalCard;
+            if ($existingCard) {
                 \Log::warning('Attempted to create duplicate card', [
                     'image_id' => $image->id,
                     'image_url' => $image->image_url,
                     'existing_card_id' => $existingCard->id,
-                    'existing_card_type' => $existingGalleryCard ? 'gallery' : 'global',
+                    'existing_card_type' => 'gallery',
                     'user_id' => auth()->id()
                 ]);
                 return back()

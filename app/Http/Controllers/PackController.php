@@ -148,6 +148,9 @@ class PackController extends Controller
                 throw new \Exception('Failed to mark pack as opened.');
             }
 
+            // Delete the pack after successful opening
+            $pack->delete();
+
             DB::commit();
 
             return redirect()->route('cards.index', ['view' => 'grid'])
@@ -180,5 +183,37 @@ class PackController extends Controller
         }
 
         return back()->with('success', 'Pack has been sealed and can now be listed on the marketplace');
+    }
+
+    public function destroy(Pack $pack)
+    {
+        $this->authorize('delete', $pack);
+
+        try {
+            DB::beginTransaction();
+
+            // Remove all cards from the pack
+            $pack->cards()->update([
+                'is_in_pack' => false,
+                'pack_id' => null
+            ]);
+
+            // Delete the pack
+            $pack->delete();
+
+            DB::commit();
+
+            return redirect()->route('packs.index')
+                ->with('success', 'Pack deleted successfully');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            logger()->error('Pack deletion failed', [
+                'error' => $e->getMessage(),
+                'pack_id' => $pack->id,
+                'user_id' => auth()->id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return back()->with('error', 'Failed to delete pack: ' . $e->getMessage());
+        }
     }
 }

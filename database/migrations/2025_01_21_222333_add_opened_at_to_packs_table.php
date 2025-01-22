@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('packs', function (Blueprint $table) {
-            $table->timestamp('opened_at')->nullable()->after('is_sealed');
-        });
+        if (!Schema::hasColumn('packs', 'opened_at')) {
+            Schema::table('packs', function (Blueprint $table) {
+                $table->timestamp('opened_at')->nullable()->after('is_sealed');
+            });
+        }
     }
 
     /**
@@ -21,8 +23,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('packs', function (Blueprint $table) {
-            //
-        });
+        if (Schema::hasColumn('packs', 'opened_at')) {
+            Schema::table('packs', function (Blueprint $table) {
+                $table->dropColumn('opened_at');
+            });
+        }
     }
 };

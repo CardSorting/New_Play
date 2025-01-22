@@ -84,9 +84,18 @@
                                     <div class="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
                                         <span>{{ $pack->cards_count }} / {{ $pack->card_limit }} cards</span>
                                         @if(!$pack->is_sealed)
-                                            <a href="{{ route('packs.show', $pack) }}" class="text-blue-500 hover:text-blue-700">
-                                                View Details →
-                                            </a>
+                                            <div class="flex items-center gap-4">
+                                                <a href="{{ route('packs.show', $pack) }}" class="text-blue-500 hover:text-blue-700">
+                                                    View Details →
+                                                </a>
+                                                <form method="POST" action="{{ route('packs.destroy', $pack) }}" onsubmit="return confirm('Are you sure you want to delete this pack? This cannot be undone.')">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="text-red-500 hover:text-red-700">
+                                                        Delete
+                                                    </button>
+                                                </form>
+                                            </div>
                                         @endif
                                     </div>
                                 </div>
