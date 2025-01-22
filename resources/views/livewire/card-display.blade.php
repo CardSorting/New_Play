@@ -1,5 +1,5 @@
-<div class="relative group h-full" wire:key="card-{{ $card['name'] }}">
-    <div class="mtg-card h-full bg-white overflow-hidden shadow-xl rounded-lg transform transition-all duration-300 ease-out
+<div class="relative group h-[450px] w-[350px]" wire:key="card-{{ $card['name'] }}">
+    <div class="mtg-card h-[450px] w-[350px] bg-white overflow-hidden shadow-md rounded-lg transform transition-all duration-300 ease-out
                 {{ $showFlipAnimation ? 'rotate-y-180' : '' }}" 
          style="transform-style: preserve-3d;">
         
@@ -8,7 +8,7 @@
                     {{ $showFlipAnimation ? 'opacity-0 rotate-y-180' : 'opacity-100' }}"
              style="backface-visibility: hidden;">
             
-            <div class="card-frame h-full flex flex-col bg-[#f8e7c9] border-[14px] border-[#171314] rounded-lg overflow-hidden">
+            <div class="card-frame h-full flex flex-col bg-[#f8e7c9] border-[10px] border-[#171314] rounded-lg overflow-hidden">
                 <!-- Simplified Frame Effects -->
                 <div class="absolute inset-0 opacity-20 mix-blend-overlay" 
                      style="background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+CjxwYXR0ZXJuIGlkPSJwYXR0ZXJuIiB4PSIwIiB5PSIwIiB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPgogIDxwYXRoIGQ9Ik0gMjAgMTAgQyAyMCAxNS41MjI4IDE1LjUyMjggMjAgMTAgMjAgQyA0LjQ3NzE1IDIwIDAgMTUuNTIyOCAwIDEwIEMgMCA0LjQ3NzE1IDQuNDc3MTUgMCAxMCAwIEMgMTUuNTIyOCAwIDIwIDQuNDc3MTUgMjAgMTAgWiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMjkyNTI0IiBzdHJva2Utb3BhY2l0eT0iMC4xIiBzdHJva2Utd2lkdGg9IjAuNSIvPgo8L3BhdHRlcm4+CjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjcGF0dGVybikiLz4KPC9zdmc+');">
@@ -62,7 +62,7 @@
                 </div>
 
                 <!-- Info Line -->
-                <div class="card-footer relative flex justify-between items-center mt-2 mx-2 mb-2 px-4 py-2 bg-[#171314] text-[#d3ced9] text-xs">
+                <div class="card-footer relative grid grid-cols-2 mt-2 mx-2 mb-2 px-4 py-2 bg-[#171314] text-[#d3ced9] text-xs min-w-full">
                     <div class="flex items-center space-x-2">
                         <span class="rarity-symbol text-xs
                             @if($this->isMythicRare()) text-orange-400
@@ -74,10 +74,10 @@
                             @elseif($this->isUncommon()) U
                             @else C @endif
                         </span>
-                        <span class="rarity-details">{{ $card['rarity'] }}</span>
+                        <span class="rarity-details truncate">{{ $card['rarity'] }}</span>
                     </div>
                     @if($card['power_toughness'])
-                        <span class="power-toughness font-bold">
+                        <span class="power-toughness font-bold text-right">
                             {{ $card['power_toughness'] }}
                         </span>
                     @endif
