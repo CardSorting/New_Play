@@ -87,25 +87,23 @@ class PackController extends Controller
             return back()->with('error', 'Cannot modify a sealed pack');
         }
 
-        if ($pack->cards()->count() >= $pack->card_limit) {
-            return back()->with('error', 'Pack has reached its card limit');
-        }
-
         try {
             DB::beginTransaction();
 
             $card = Gallery::findOrFail($validated['card_id']);
             
-            if (!$pack->addCard($card)) {
-                throw new \Exception('Failed to add card to pack');
+            $result = $pack->addCard($card);
+            
+            if (!$result['success']) {
+                throw new \Exception($result['message']);
             }
 
             DB::commit();
 
-            return back()->with('success', 'Card added to pack successfully');
+            return back()->with('success', $result['message']);
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to add card to pack');
+            return back()->with('error', $e->getMessage());
         }
     }
 

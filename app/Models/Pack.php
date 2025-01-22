@@ -170,13 +170,48 @@ class Pack extends Model
         return true;
     }
 
-    public function addCard(Gallery $card): bool
+    public function isValidCardType(Gallery $card): bool
     {
-        if ($this->is_sealed || $this->cards()->count() >= $this->card_limit) {
-            return false;
+        $validTypes = ['creature', 'instant', 'sorcery', 'enchantment', 'artifact', 'planeswalker', 'land'];
+        return in_array($card->type, $validTypes);
+    }
+
+    public function addCard(Gallery $card): array
+    {
+        if ($this->is_sealed) {
+            return [
+                'success' => false,
+                'message' => 'Cannot add cards to a sealed pack.'
+            ];
         }
 
-        return $card->addToPack($this);
+        if ($this->cards()->count() >= $this->card_limit) {
+            return [
+                'success' => false,
+                'message' => 'Pack has reached its card limit.'
+            ];
+        }
+
+        if (!$this->isValidCardType($card)) {
+            return [
+                'success' => false,
+                'message' => 'Invalid card type for pack.'
+            ];
+        }
+
+        if ($card->user_id !== $this->user_id) {
+            return [
+                'success' => false,
+                'message' => 'You must own the card to add it to a pack.'
+            ];
+        }
+
+        $result = $card->addToPack($this);
+        
+        return [
+            'success' => $result,
+            'message' => $result ? 'Card added to pack successfully.' : 'Failed to add card to pack.'
+        ];
     }
 
     public function removeCard(Gallery $card): bool

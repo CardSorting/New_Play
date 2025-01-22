@@ -41,9 +41,18 @@
                             @if($availableCards->isEmpty())
                                 <p class="text-gray-500 dark:text-gray-400">You don't have any cards available to add to this pack.</p>
                             @else
+                                @if ($errors->any())
+                                    <div class="mb-4 p-4 bg-red-50 border border-red-200 text-red-600 rounded-lg">
+                                        <ul class="list-disc list-inside">
+                                            @foreach ($errors->all() as $error)
+                                                <li>{{ $error }}</li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                @endif
                                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     @foreach($availableCards as $card)
-                                        <div class="border dark:border-gray-700 rounded-lg p-4 transform-gpu card-container">
+                                        <div class="border dark:border-gray-700 rounded-lg p-4 transform-gpu card-container @if($errors->has('card_id.'.$card->id)) border-red-500 @endif">
                                             <div class="card">
                                                 <div class="flex justify-between items-start mb-2">
                                                     <div>

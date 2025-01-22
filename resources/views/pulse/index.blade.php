@@ -3,20 +3,21 @@
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900" x-cloak x-data="{
-    loading: false,
-    claimed: false,
-    message: '',
-    errorMessage: '',
-    nextClaimTime: @json($nextClaimTime ?? ''),
-    creditBalance: @json($creditBalance ?? 0),
-    init() {
-        console.log('Initializing pulse component');
-        // Initialize reactive properties
-        this.loading = false;
-        this.claimed = false;
-        this.message = '';
-        this.errorMessage = '';
-    },
+                    loading: false,
+                    claimed: false,
+                    message: '',
+                    errorMessage: '',
+                    nextClaimTime: @json($nextClaimTime ?? ''),
+                    creditBalance: @json($creditBalance ?? 0),
+                    
+                    init() {
+                        console.log('Initializing pulse component');
+                        // Initialize reactive properties
+                        this.loading = false;
+                        this.claimed = false;
+                        this.message = '';
+                        this.errorMessage = '';
+                    },
     async claimPulse() {
         if (this.loading || this.claimed) return;
         
