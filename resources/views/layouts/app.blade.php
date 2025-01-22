@@ -60,6 +60,11 @@
         <!-- Initialize Livewire -->
         <script>
             document.addEventListener('DOMContentLoaded', () => {
+                // Initialize card effects
+                if (typeof initializeCardEffects === 'function') {
+                    initializeCardEffects();
+                }
+
                 if (window.livewire) {
                     window.livewire.on('cardUpdated', () => {
                         // Reinitialize 3D effects after Livewire updates
@@ -73,6 +78,7 @@
 
         <!-- App Scripts -->
         @vite(['resources/js/app.js'])
+        <script src="{{ asset('js/mtg-card-3d-effect.js') }}"></script>
         
         <!-- Additional Scripts -->
         @stack('scripts')

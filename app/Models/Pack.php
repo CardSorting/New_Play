@@ -171,12 +171,6 @@ class Pack extends Model
         return true;
     }
 
-    public function isValidCardType(Gallery $card): bool
-    {
-        $validTypes = ['creature', 'instant', 'sorcery', 'enchantment', 'artifact', 'planeswalker', 'land'];
-        return in_array($card->type, $validTypes);
-    }
-
     public function addCard(Gallery $card): array
     {
         try {
@@ -186,10 +180,6 @@ class Pack extends Model
 
             if ($this->cards()->count() >= $this->card_limit) {
                 throw new \Exception('Pack has reached its card limit.');
-            }
-
-            if (!$this->isValidCardType($card)) {
-                throw new \Exception('Invalid card type for pack.');
             }
 
             if ($card->user_id !== $this->user_id) {
