@@ -1,5 +1,5 @@
 <div class="bg-white overflow-hidden shadow-sm rounded-lg">
-    <div class="image-container relative h-[45%] w-full cursor-pointer rounded-lg overflow-hidden mx-2 mt-2 mb-2"
+    <div class="image-container relative w-full max-w-[400px] cursor-pointer rounded-lg overflow-hidden mx-2 mt-2 mb-2 aspect-[4/3]"
          onclick="ImageDetailsModal.show('{{ addslashes($image->prompt) }}', '{{ $image->image_url }}', '{{ $image->aspect_ratio }}', '{{ $image->process_mode }}', '{{ $image->task_id }}', '{{ $image->created_at_for_humans }}', {{ json_encode($image->metadata) }})"
          role="button"
          tabindex="0"
