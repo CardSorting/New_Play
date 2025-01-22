@@ -64,10 +64,6 @@ class Gallery extends Model
                 throw new \Exception('Card is already in a pack');
             }
 
-            if (empty($this->metadata) || !isset($this->metadata['rarity'])) {
-                throw new \Exception('Card metadata is incomplete');
-            }
-
             $result = $this->update([
                 'pack_id' => $pack->id,
                 'is_in_pack' => true,
@@ -82,7 +78,7 @@ class Gallery extends Model
                 'card_id' => $this->id,
                 'pack_id' => $pack->id,
                 'user_id' => $this->user_id,
-                'rarity' => $this->metadata['rarity']
+                'rarity' => $this->rarity
             ]);
 
             return true;

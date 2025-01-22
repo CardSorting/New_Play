@@ -186,10 +186,6 @@ class Pack extends Model
                 throw new \Exception('You must own the card to add it to a pack.');
             }
 
-            if (empty($card->metadata) || !isset($card->metadata['rarity'])) {
-                throw new \Exception('Card metadata is incomplete - missing rarity information.');
-            }
-
             DB::beginTransaction();
 
             $result = $card->addToPack($this);
