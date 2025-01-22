@@ -2,14 +2,26 @@
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900" x-data="{
+                <div class="p-6 text-gray-900" x-cloak x-data="{
+    __init() {
+        console.log('Initializing pulse component');
+        try {
+            this.nextClaimTime = @json($nextClaimTime ?? '');
+            this.creditBalance = @json($creditBalance ?? 0);
+        } catch (error) {
+            console.error('Error initializing component data:', error);
+            this.errorMessage = 'Failed to initialize component';
+        }
+        this.init();
+    },
                     loading: false,
                     claimed: false,
                     message: '',
                     errorMessage: '',
-                    nextClaimTime: @json($nextClaimTime),
-                    creditBalance: @json($creditBalance),
+                    nextClaimTime: '',
+                    creditBalance: 0,
                     init() {
+                        console.log('Initializing reactive properties');
                         // Initialize reactive properties
                         this.loading = false;
                         this.claimed = false;
@@ -55,7 +67,7 @@
                             this.loading = false;
                         }
                     }
-                }">
+                }" x-init="__init()">
                     <div class="text-center mb-8">
                         <h2 class="text-2xl font-semibold mb-2">Daily Pulse</h2>
                         <p class="text-gray-600 mb-4">Claim {{ number_format($amount) }} Pulse for free every day!</p>
