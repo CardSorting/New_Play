@@ -3,71 +3,57 @@
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900" x-cloak x-data="{
-    __init() {
+    loading: false,
+    claimed: false,
+    message: '',
+    errorMessage: '',
+    nextClaimTime: @json($nextClaimTime ?? ''),
+    creditBalance: @json($creditBalance ?? 0),
+    init() {
         console.log('Initializing pulse component');
-        try {
-            this.nextClaimTime = @json($nextClaimTime ?? '');
-            this.creditBalance = @json($creditBalance ?? 0);
-        } catch (error) {
-            console.error('Error initializing component data:', error);
-            this.errorMessage = 'Failed to initialize component';
-        }
-        this.init();
+        // Initialize reactive properties
+        this.loading = false;
+        this.claimed = false;
+        this.message = '';
+        this.errorMessage = '';
     },
-                    loading: false,
-                    claimed: false,
-                    message: '',
-                    errorMessage: '',
-                    nextClaimTime: '',
-                    creditBalance: 0,
-                    init() {
-                        console.log('Initializing reactive properties');
-                        // Initialize reactive properties
-                        this.loading = false;
-                        this.claimed = false;
-                        this.message = '';
-                        this.errorMessage = '';
-                    },
-                    async claimPulse() {
-                        if (this.loading || this.claimed) return;
-                        
-                        this.loading = true;
-                        this.message = '';
-                        this.errorMessage = '';
-                        
-                        try {
-                            const response = await fetch('{{ route('pulse.claim') }}', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content
-                                }
-                            });
-                            
-                            const data = await response.json();
-                            
-                            if (response.ok) {
-                                this.claimed = true;
-                                this.message = 'Successfully claimed daily pulse!';
-                                this.creditBalance = data.new_balance;
-                                
-                                // Set next claim time to 24 hours from now
-                                const nextDate = new Date();
-                                nextDate.setHours(nextDate.getHours() + 24);
-                                this.nextClaimTime = nextDate.toISOString().slice(0, 19).replace('T', ' ');
-                                
-                                // Refresh the page after 2 seconds to ensure server state is synced
-                                setTimeout(() => window.location.reload(), 2000);
-                            } else {
-                                this.errorMessage = data.error || 'Failed to claim pulse';
-                            }
-                        } catch (error) {
-                            this.errorMessage = 'An error occurred while claiming pulse';
-                        } finally {
-                            this.loading = false;
-                        }
-                    }
-                }" x-init="__init()">
+    async claimPulse() {
+        if (this.loading || this.claimed) return;
+        
+        this.loading = true;
+        this.message = '';
+        this.errorMessage = '';
+        
+        try {
+            const response = await fetch('{{ route('pulse.claim') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                this.message = 'Successfully claimed daily pulse!';
+                this.creditBalance = data.new_balance;
+                
+                // Set next claim time to 24 hours from now
+                const nextDate = new Date();
+                nextDate.setHours(nextDate.getHours() + 24);
+                this.nextClaimTime = nextDate.toISOString().slice(0, 19).replace('T', ' ');
+                this.claimed = true;
+            } else {
+                this.errorMessage = data.error || 'Failed to claim pulse';
+            }
+        } catch (error) {
+            this.errorMessage = 'An error occurred while claiming pulse';
+        } finally {
+            this.loading = false;
+        }
+    }
+                }" x-init="init()">
                     <div class="text-center mb-8">
                         <h2 class="text-2xl font-semibold mb-2">Daily Pulse</h2>
                         <p class="text-gray-600 mb-4">Claim {{ number_format($amount) }} Pulse for free every day!</p>
